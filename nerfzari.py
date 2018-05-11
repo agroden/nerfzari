@@ -15,12 +15,6 @@ log = logging.getLogger(__name__)
 DEFAULT_PORT = 4040
 
 
-class Nerfzari(cmd2.Cmd):
-	"""The main command loop of Nerfzari"""
-	def do_register(self, args):
-		self.poutput('hello world')
-
-
 if __name__ == '__main__':
 	# TODO: read config from a config file
 	host_key = paramiko.RSAKey(filename='test/key.pem')
