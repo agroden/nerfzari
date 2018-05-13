@@ -91,9 +91,11 @@ class SSHCmd(cmd.Cmd):
 	"""The command handler of Nerfzari."""
 	use_rawinput = False # never use raw input
 	hidden_cmds = ['do_EOF',]
+	max_history = 1024
 	def __init__(self, chan):
 		super().__init__()
 		self._chan = chan
+		self._cmd_history = []
 
 	def poutput(self, msg, end='\r\n'):
 		"""Tweaked poutput to use Paramiko channel."""
@@ -105,18 +107,51 @@ class SSHCmd(cmd.Cmd):
 
 	def _cmdloop(self, prompt):
 		"""Major modification was required to emulate vt100 stuff"""
+		def clear_prompt(curr_line, curr_pos):
+			self._chan.send('\010'*pos)
+			self._chan.send('\000'*len(curr_line))
+			self._chan.send('\010'*len(curr_line))
+
+		def add_line_to_history(curr_line):
+			self._cmd_history.append(curr_line)
+			if len(self._cmd_history) > self.max_history:
+				self._cmd_history.pop(0)
+
 		self.poutput(prompt, end='')
 		line = []
 		pos = 0
+		history_idx = len(self._cmd_history)
+		last_line = None
 		while True:
 			data = self._chan.recv(12)
 			print(data)
 			data = data.decode('utf-8')
 			if data.startswith('\x1b'):
 				if data == '\x1b[A': # up arrow key
-					print('up')
+					#print('up')
+					if history_idx == len(self._cmd_history):
+						last_line = line
+					if history_idx > 0:
+						history_idx -= 1
+						#print('history_idx: {}, history len: {}'.format(history_idx, len(self._cmd_history)))
+						clear_prompt(line, pos)
+						line = self._cmd_history[history_idx]
+						self._chan.send(''.join(line).strip())
+						pos = len(line)
+
 				elif data == '\x1b[B': # down arrow key
-					print('down')
+					#print('down')
+					if history_idx < len(self._cmd_history):
+						history_idx += 1
+						clear_prompt(line, pos)
+						#print('history_idx: {}, history len: {}'.format(history_idx, len(self._cmd_history)))
+						if history_idx == len(self._cmd_history):
+							line = last_line
+						else:
+							line = self._cmd_history[history_idx]
+						self._chan.send(''.join(line).strip())
+						pos = len(line)
+
 				elif data == '\x1b[C': # right arrow key
 					#print('right')
 					if pos < len(line):
@@ -173,12 +208,15 @@ class SSHCmd(cmd.Cmd):
 						pos -= 1
 
 			elif data == '\t':
-				print('tab')
+				print('tab') # TODO: implement tab completion
 			
 			else:
 				if '\r' in data:
 					self.poutput('')
 					break
+				if data >= '\x00' and data <= '\x1a':
+					print('ctrl character')
+					continue
 				if pos < len(line):
 					#print('inserting at {}'.format(pos))
 					r = line[pos:]
@@ -194,6 +232,7 @@ class SSHCmd(cmd.Cmd):
 					line.append(data)
 					self._chan.send(data)
 					pos += 1
+		add_line_to_history(line)
 		return ''.join(line).strip()
 
 	def cmdloop(self, intro=None):
