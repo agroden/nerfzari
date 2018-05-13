@@ -7,6 +7,7 @@ name = "pypi"
 "ldap3" = "*"
 paramiko = "*"
 "cmd2" = "*"
+wcwidth = "*"
 
 [dev-packages]
 pylint = "*"
