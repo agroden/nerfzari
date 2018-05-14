@@ -244,8 +244,11 @@ class SSHCmd(cmd.Cmd):
 					self.poutput('')
 					break
 				if data >= '\x00' and data <= '\x1a':
-					print('ctrl character')
-					continue
+					#print('ctrl character')
+					if data == '\x03': # ctrl+c
+						self.poutput('')
+						return data
+					continue # otherwise, ignore
 				if pos < len(line):
 					#print('inserting at {}'.format(pos))
 					r = line[pos:]
@@ -278,6 +281,10 @@ class SSHCmd(cmd.Cmd):
 				line = self._cmdloop(self.prompt)
 				if not len(line):
 					line = 'EOF'
+				elif line == '\x03': # ctrl+c
+					stop = True
+					stop = self.postcmd(stop, line)
+					break
 				else:
 					line = line.rstrip('\r\n')
 			line = self.precmd(line)
