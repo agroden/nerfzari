@@ -125,31 +125,25 @@ class SSHCmd(cmd.Cmd):
 		tab_ctr = 0
 		tab_line = []
 		while True:
-			data = self._chan.recv(12)
-			print(data)
-			data = data.decode('utf-8')
+			data = self._chan.recv(12).decode('utf-8')
 			if tab_ctr > 0 and data != '\t':
 				tab_ctr = 0
 				tab_line = ''
 			if data.startswith('\x1b'):
 				if data == '\x1b[A': # up arrow key
-					#print('up')
 					if history_idx == len(self._cmd_history):
 						last_line = line
 					if history_idx > 0:
 						history_idx -= 1
-						#print('history_idx: {}, history len: {}'.format(history_idx, len(self._cmd_history)))
 						clear_prompt(line, pos)
 						line = self._cmd_history[history_idx]
 						self._chan.send(''.join(line).strip())
 						pos = len(line)
 
 				elif data == '\x1b[B': # down arrow key
-					#print('down')
 					if history_idx < len(self._cmd_history):
 						history_idx += 1
 						clear_prompt(line, pos)
-						#print('history_idx: {}, history len: {}'.format(history_idx, len(self._cmd_history)))
 						if history_idx == len(self._cmd_history):
 							line = last_line
 						else:
@@ -158,33 +152,23 @@ class SSHCmd(cmd.Cmd):
 						pos = len(line)
 
 				elif data == '\x1b[C': # right arrow key
-					#print('right')
 					if pos < len(line):
-						#print('pos: {}, line len: {}'.format(pos, len(line)))
 						self._chan.send(data)
 						pos += 1
 				elif data == '\x1b[D': # left arrow key
-					#print('left')
 					if pos > 0:
-						#print('pos: {}, line len: {}'.format(pos, len(line)))
 						self._chan.send(data)
 						pos -= 1
 				elif data == '\x1b[3~': # delete key
-					#print('delete')
 					if len(line) > 0:
 						if pos > 0 and pos < len(line):
-							#print('delete at {}'.format(pos))
 							l = line[:pos]
 							r = line[pos+1:]
-							#print('left: {}, right: {}'.format(''.join(l), ''.join(r)))
 							for x in r:
-								#print('sending: {}'.format(x))
 								self._chan.send(x)
 							self._chan.send('\000')
 							self._chan.send('\010'*(len(line)-pos))
 							line = l + r
-							#print('line: {}'.format(''.join(line)))
-							#print('pos: {}, line len: {}'.format(pos, len(line)))
 							if len(line) < pos:
 								pos = len(line)
 								self._chan.send('\000')
@@ -193,30 +177,22 @@ class SSHCmd(cmd.Cmd):
 				if len(line) > 0:
 					if pos > 0 and pos < len(line):
 						pos -= 1
-						#print('backspace at {}'.format(pos))
 						l = line[:pos]
 						r = line[pos+1:]
-						#print('left: {}, right: {}'.format(''.join(l), ''.join(r)))
-						#print('sending: backspace')
 						self._chan.send('\010')
 						for x in r:
-							#print('sending: {}'.format(x))
 							self._chan.send(x)
 						self._chan.send('\000')
 						self._chan.send('\010'*(len(line)-pos))
 						line = l + r
-						#print('line: {}'.format(''.join(line)))
-						#print('pos: {}, line len: {}'.format(pos, len(line)))
 					else:
 						self._chan.send('\010\000\010')
 						line = line[:-1]
 						pos -= 1
 
 			elif data == '\t': # tab
-				#print('tab')
 				if len(line) == 0:
-					cmd, args, foo = self.parseline(''.join(line))
-					#print('cmd: {}, args: {}, foo: {}'.format(cmd, args, foo))
+					cmd, _, _ = self.parseline(''.join(line))
 					if cmd == None or cmd == '':
 						compfunc = self.completedefault
 					else:
@@ -228,11 +204,9 @@ class SSHCmd(cmd.Cmd):
 					compfunc = self.completenames
 				if tab_ctr == 0:
 					tab_line = line
-				#print('tab_line: {}'.format(''.join(tab_line)))
 				self.completion_matches = compfunc(''.join(tab_line), ''.join(tab_line), 0, len(tab_line))
 				if tab_ctr >= 1 and len(self.completion_matches) == 1:
 					continue
-				#print('matches: {}'.format(self.completion_matches))
 				clear_prompt(line, pos)
 				line = list(self.completion_matches[tab_ctr % len(self.completion_matches)])
 				self._chan.send(''.join(line).strip())
@@ -244,17 +218,13 @@ class SSHCmd(cmd.Cmd):
 					self.poutput('')
 					break
 				if data >= '\x00' and data <= '\x1a':
-					#print('ctrl character')
 					if data == '\x03': # ctrl+c
 						self.poutput('')
 						return data
 					continue # otherwise, ignore
 				if pos < len(line):
-					#print('inserting at {}'.format(pos))
 					r = line[pos:]
 					line.insert(pos, data)
-					#print('line: {}'.format(''.join(line)))
-					#print('pos: {}, line len: {}'.format(pos, len(line)))
 					self._chan.send(data)
 					for x in r:
 						self._chan.send(x)
