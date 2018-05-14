@@ -122,10 +122,15 @@ class SSHCmd(cmd.Cmd):
 		pos = 0
 		history_idx = len(self._cmd_history)
 		last_line = None
+		tab_ctr = 0
+		tab_line = []
 		while True:
 			data = self._chan.recv(12)
 			print(data)
 			data = data.decode('utf-8')
+			if tab_ctr > 0 and data != '\t':
+				tab_ctr = 0
+				tab_line = ''
 			if data.startswith('\x1b'):
 				if data == '\x1b[A': # up arrow key
 					#print('up')
@@ -207,9 +212,33 @@ class SSHCmd(cmd.Cmd):
 						line = line[:-1]
 						pos -= 1
 
-			elif data == '\t':
-				print('tab') # TODO: implement tab completion
-			
+			elif data == '\t': # tab
+				#print('tab')
+				if len(line) == 0:
+					cmd, args, foo = self.parseline(''.join(line))
+					#print('cmd: {}, args: {}, foo: {}'.format(cmd, args, foo))
+					if cmd == None or cmd == '':
+						compfunc = self.completedefault
+					else:
+						try:
+							compfunc = getattr(self, 'complete_' + cmd)
+						except AttributeError:
+							compfunc = self.completedefault
+				else:
+					compfunc = self.completenames
+				if tab_ctr == 0:
+					tab_line = line
+				#print('tab_line: {}'.format(''.join(tab_line)))
+				self.completion_matches = compfunc(''.join(tab_line), ''.join(tab_line), 0, len(tab_line))
+				if tab_ctr >= 1 and len(self.completion_matches) == 1:
+					continue
+				#print('matches: {}'.format(self.completion_matches))
+				clear_prompt(line, pos)
+				line = list(self.completion_matches[tab_ctr % len(self.completion_matches)])
+				self._chan.send(''.join(line).strip())
+				pos = len(line)
+				tab_ctr += 1
+
 			else:
 				if '\r' in data:
 					self.poutput('')
