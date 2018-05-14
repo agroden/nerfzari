@@ -14,18 +14,19 @@ log = logging.getLogger(__name__)
 
 DEFAULT_PORT = 4040
 
-# actions:
-# create game - need start date, name, game type
-# register for game (before game start)
-# unregister from game (before game start)
-# personal status (games, IDs, overall K/D ratio, ranking)
-# game status - game ID or current (who has been killed, K/D ratio)
-# leaderboard
-# game history
-# kill - ID of participant
-# suicide - remove yourself from game
 
 class NerfzariCmd(nerfzari.SSHCmd):
+	# actions:
+	# create game - need start date, name, game type
+	# register for game (before game start)
+	# unregister from game (before game start)
+	# personal status (games, IDs, overall K/D ratio, ranking)
+	# game status - game ID or current (who has been killed, K/D ratio)
+	# leaderboard
+	# game history
+	# kill - ID of participant
+	# suicide - remove yourself from game
+	prompt = '> '
 	def do_hello(self, args):
 		"""say hello"""
 		self.poutput('Hello world')
@@ -84,7 +85,7 @@ if __name__ == '__main__':
 			sys.exit(1)
 		print('2')
 		term = NerfzariCmd(chan)
-		term.cmdloop('Nerfing is true; everything is permitted')
+		term.cmdloop('nerfing is true; everything is permitted')
 
 	except Exception as ex:
 		log.error('Unexpected exception occurred: {}'.format(str(ex)))
