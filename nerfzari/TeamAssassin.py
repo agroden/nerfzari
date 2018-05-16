@@ -1,0 +1,44 @@
+from datetime import datetime
+from typing import List,Any
+from Game import Game,GameType
+
+class TeamAssassin(Game):
+
+	GAME_TYPE = GameType.TEAM_ASSASSIN
+	TYPE_NAME = "Team Nerf Assassin"
+	teams: List['Team']
+
+	def __init__(self, name, start_date):
+		super().__init__(self.GAME_TYPE)
+		self.name = name
+		self.start_date = start_date
+		self.id = 0
+		self.teams = []
+	# -------------------------------------------------------------------------
+
+	def __str__(self):
+		return self.TYPE_NAME + " - " + self.name + " - " + str(self.start_date)
+
+	# -------------------------------------------------------------------------
+
+	def leaderboard(self):
+		"""
+		:returns: True if leaderboard is successfully printed; otherwise False is returned.
+		"""
+		print("--- " + str(self) + " ---")
+		print("1 - Team 1 - 3 Kills")
+		print("2 - Team 2 - 1 Kill")
+		print("3 - Team 3 - 0 Kills")
+		print("4 - Team 4 - (-1) Kills")
+		return True
+	# -------------------------------------------------------------------------
+
+	def status(self, team_id: int):
+		"""
+		:param team_id: Unique id of the team to print the status of (kills, deaths, stock, members & member stats, etc)
+		:returns: True if status has been successfully retrieved and printed; otherwise False is returned.
+		"""
+
+		raise NotImplementedError()
+
+	# -------------------------------------------------------------------------
