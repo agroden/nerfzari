@@ -9,7 +9,7 @@ class NerfAssassin(Game):
 	TYPE_NAME = "Nerf Assassin"
 	participants: List['User']
 
-	def __init__(self, name: str, start_date: datetime) -> object:
+	def __init__(self, name: str, start_date: datetime):
 		super().__init__(self.GAME_TYPE)
 		self.name = name
 		self.start_date = start_date
@@ -32,13 +32,29 @@ class NerfAssassin(Game):
 		return True
 	# -------------------------------------------------------------------------
 
-	def status(self, user: User):
+	def status(self, handle: str):
 		"""
-		:param user: User object to print the status of (is_alive, current target, # kills... etc)
+		:param handle: handle of the participant to print the status of (is_alive, current target, # kills... etc)
 		:return: True if status has been successfully retrieved and printed; otherwise False is returned.
 		"""
+		participant = self.get_participant(handle)
+		if participant is None:
+			print("ERROR: Assassin " + participant + " is not a participant in " + self.name)
+			return False
 
-		raise NotImplementedError()
+		msg = "Name: "
+		msg += participant.first_name
+		msg += " "
+		msg += participant.last_name
+		msg += " Handle: "
+		msg += participant.handle
+		msg += " Kills "
+		msg += str(len(participant.kills))
+		msg += " Target: "
+		msg += participant.target
+
+		print(msg)
+		return True
 	# -------------------------------------------------------------------------
 
 	def register_kill(self, assassin_handle: str, assassinated_handle: str):
@@ -88,4 +104,12 @@ class NerfAssassin(Game):
 			if user.handle == handle:
 				participant = user
 		return participant
+	# -------------------------------------------------------------------------
+
+	def distribute_targets(self):
+		"""
+		:return: True if all participants were assigned a target; otherwise False is returned.
+		"""
+
+		raise NotImplementedError()
 	# -------------------------------------------------------------------------

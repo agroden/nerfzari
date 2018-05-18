@@ -9,7 +9,7 @@ class NerfZombie(Game):
 	TYPE_NAME = "Nerf Zombie"
 	participants: List['User']
 
-	def __init__(self, name: str, start_date: datetime) -> object:
+	def __init__(self, name: str, start_date: datetime):
 		super().__init__(self.GAME_TYPE)
 		self.name = name
 		self.start_date = start_date
@@ -33,12 +33,20 @@ class NerfZombie(Game):
 		return True
 	# -------------------------------------------------------------------------
 
-	def status(self, user: User):
+	def status(self, handle: str):
 		"""
-		:param user: User object to print the status of (is_alive, current target, # kills... etc)
+		:param handle: handle of the participant to print the status of (is_alive, current target, # kills... etc)
 		:return: True if status has been successfully retrieved and printed; otherwise False is returned.
 		"""
 
 		raise NotImplementedError()
 
+	# -------------------------------------------------------------------------
+
+	def distribute_targets(self):
+		"""
+		:return: True if all participants were assigned a target; otherwise False is returned.
+		"""
+
+		raise NotImplementedError()
 	# -------------------------------------------------------------------------
