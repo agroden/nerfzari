@@ -26,7 +26,7 @@ class NerfzariCmd(nerfzari.SSHCmd):
 	# game history
 	# kill - ID of participant
 	# suicide - remove yourself from game
-	prompt = '> '
+	prompt = '>'
 	def do_hello(self, args):
 		"""say hello"""
 		out = 'world'
@@ -42,6 +42,10 @@ class NerfzariCmd(nerfzari.SSHCmd):
 			ret = [x for x in self.greetings if x.startswith(text)]
 		return ret
 	
+	def do_input(self, args):
+		recv = self.terminput('input>', False)
+		self.poutput('You entered: {}'.format(recv))
+
 	def do_exit(self, args):
 		"""exit the terminal"""
 		self.poutput('exiting...')
