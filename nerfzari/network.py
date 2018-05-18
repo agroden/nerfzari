@@ -105,18 +105,15 @@ class SSHCmd(cmd.Cmd):
 			if not msg_str.endswith(end):
 				self._chan.send(end)
 
-	def _cmdloop(self, prompt):
+	def terminput(self, prompt, tab_complete=True, tab_completer=None):
 		"""Major modification was required to emulate vt100 stuff"""
 		def clear_prompt(curr_line, curr_pos):
 			self._chan.send('\010'*pos)
 			self._chan.send('\000'*len(curr_line))
 			self._chan.send('\010'*len(curr_line))
 
-		def add_line_to_history(curr_line):
-			self._cmd_history.append(curr_line)
-			if len(self._cmd_history) > self.max_history:
-				self._cmd_history.pop(0)
-
+		if prompt[:-1] != ' ':
+			prompt = prompt + ' '
 		self.poutput(prompt, end='')
 		line = []
 		pos = 0
@@ -190,9 +187,11 @@ class SSHCmd(cmd.Cmd):
 						line = line[:-1]
 						pos -= 1
 
-			elif data == '\t': # tab
-				if len(line) == 0:
-					cmd, _, _ = self.parseline(''.join(line))
+			elif data == '\t' and tab_complete: # tab
+				if tab_ctr == 0:
+					tab_line = line
+				if ' ' in line and tab_completer is None: # complete arguments
+					cmd, args, _ = self.parseline(''.join(tab_line))
 					if cmd == None or cmd == '':
 						compfunc = self.completedefault
 					else:
@@ -200,15 +199,27 @@ class SSHCmd(cmd.Cmd):
 							compfunc = getattr(self, 'complete_' + cmd)
 						except AttributeError:
 							compfunc = self.completedefault
-				else:
-					compfunc = self.completenames
-				if tab_ctr == 0:
-					tab_line = line
-				self.completion_matches = compfunc(''.join(tab_line), ''.join(tab_line), 0, len(tab_line))
-				if tab_ctr >= 1 and len(self.completion_matches) == 1:
-					continue
-				clear_prompt(line, pos)
-				line = list(self.completion_matches[tab_ctr % len(self.completion_matches)])
+					self.completion_matches = compfunc(args, tab_line, 0, len(tab_line))
+					if len(self.completion_matches) > 0:
+						if tab_ctr >= 1 and len(self.completion_matches) == 1:
+							continue
+					clear_prompt(line, pos)
+					if len(self.completion_matches) > 0:
+						carg = self.completion_matches[tab_ctr % len(self.completion_matches)]
+						line = list(' '.join([cmd, carg]))
+				else: # complete commands
+					if tab_completer is None:
+						self.completion_matches = self.completenames(
+							''.join(tab_line), ''.join(tab_line), 0, len(tab_line))
+					else:
+						self.completion_matches = tab_completer(
+							''.join(tab_line), ''.join(tab_line), 0, len(tab_line))
+					if len(self.completion_matches) > 0:
+						if tab_ctr >= 1 and len(self.completion_matches) == 1:
+							continue
+					clear_prompt(line, pos)
+					if len(self.completion_matches) > 0:
+						line = list(self.completion_matches[tab_ctr % len(self.completion_matches)])
 				self._chan.send(''.join(line).strip())
 				pos = len(line)
 				tab_ctr += 1
@@ -234,7 +245,7 @@ class SSHCmd(cmd.Cmd):
 					line.append(data)
 					self._chan.send(data)
 					pos += 1
-		add_line_to_history(line)
+					
 		return ''.join(line).strip()
 
 	def cmdloop(self, intro=None):
@@ -248,7 +259,7 @@ class SSHCmd(cmd.Cmd):
 			if self.cmdqueue:
 				line = self.cmdqueue.pop(0)
 			else:
-				line = self._cmdloop(self.prompt)
+				line = self.terminput(self.prompt)
 				if not len(line):
 					line = 'EOF'
 				elif line == '\x03': # ctrl+c
@@ -260,6 +271,9 @@ class SSHCmd(cmd.Cmd):
 			line = self.precmd(line)
 			stop = self.onecmd(line)
 			stop = self.postcmd(stop, line)
+			self._cmd_history.append(line)
+			if len(self._cmd_history) > self.max_history:
+				self._cmd_history.pop(0)
 		self.postloop()
 
 	def default(self, line):
@@ -372,6 +386,5 @@ class SSHCmd(cmd.Cmd):
 				del texts[-1]
 			for col in range(len(texts)):
 				texts[col] = texts[col].ljust(colwidths[col])
-			print('columize sending: {}'.format("  ".join(texts)))
 			self.poutput('{}'.format(str("  ".join(texts))))
 
