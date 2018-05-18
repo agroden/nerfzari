@@ -14,6 +14,10 @@ if __name__ == '__main__':
 
 	nerf_assassin.leaderboard(nerf_assassin_id)
 
+	nerf_assassin.register_kill("an00bis", "NoName", nerf_assassin_id)
+
+	nerf_assassin.leaderboard(nerf_assassin_id)
+
 	# Create a team assassin game
 	team_assassin = Game(GameType.TEAM_ASSASSIN)
 	team_assassin_id = team_assassin.create_game("Brotherhood Civil War",datetime.now())

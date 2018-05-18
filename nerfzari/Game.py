@@ -82,6 +82,16 @@ class Game():
 
 	# --------------------------------------------------------------------------
 
+	def register_kill(self, assassin_handle: str, assassinated_handle: str, game_id: int):
+		"""
+		:param assassin_handle: Handle of the assassin that performed the kill
+		:param assassinated_handle: Handle of the participant that was assassinated
+		:param game_id: Unique id of the game the assassination was performed under
+		:return: True if the kill was successfully registered; otherwise False is returned.
+		"""
+		game = database.get_game(game_id)      # TODO: This needs to be replaced with a real database call
+		return game.register_kill(assassin_handle,assassinated_handle)
+
 	def add_participant(self, user: User, game_id: int):
 		"""
 		:param user: Name of the user to add
@@ -95,7 +105,7 @@ class Game():
 
 	# -------------------------------------------------------------------------
 
-	def remove_participant(self, user: str, game_id):
+	def remove_participant(self, user: str, game_id: int):
 		"""
 		:param user: Name of the user to remove
 		:param game_id: Unique id of the game to remove the user from

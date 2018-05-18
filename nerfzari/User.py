@@ -5,7 +5,7 @@ class User():
 	first_name: str
 	last_name: str
 	handle: str
-	kills: List['User']
+	kills: List[str] # List of handles of participants assassinated
 	deaths: int
 	is_alive: bool
 	assassinator: str
