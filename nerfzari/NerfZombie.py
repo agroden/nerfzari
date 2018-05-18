@@ -9,7 +9,7 @@ class NerfZombie(Game):
 	TYPE_NAME = "Nerf Zombie"
 	participants: List['User']
 
-	def __init__(self, name, start_date):
+	def __init__(self, name: str, start_date: datetime) -> object:
 		super().__init__(self.GAME_TYPE)
 		self.name = name
 		self.start_date = start_date
@@ -18,7 +18,7 @@ class NerfZombie(Game):
 	# -------------------------------------------------------------------------
 
 	def __str__(self):
-		return self.TYPE_NAME + " - " + self.name + " - " + str(self.start_date)
+		return str(self.id) + " - " + self.TYPE_NAME + " - " + self.name + " - " + str(self.start_date)
 
 	# -------------------------------------------------------------------------
 
