@@ -29,15 +29,23 @@ class NerfzariCmd(nerfzari.SSHCmd):
 	prompt = '> '
 	def do_hello(self, args):
 		"""say hello"""
-		self.poutput('Hello world')
+		out = 'world'
+		if args:
+			out = args
+		self.poutput('Hello {}'.format(out))
+
+	greetings = ['Alice', 'Adam', 'Bob', 'Barbara']
+	def complete_hello(self, text, line, begidx, endidx):
+		if not text:
+			ret = self.greetings[:]
+		else:
+			ret = [x for x in self.greetings if x.startswith(text)]
+		return ret
 	
 	def do_exit(self, args):
 		"""exit the terminal"""
 		self.poutput('exiting...')
 		return True
-
-	def do_EOF(self, args):
-		self.poutput('EOF')
 		
 	def postloop(self):
 		self.poutput('goodbye')

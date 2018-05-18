@@ -111,7 +111,7 @@ class SSHCmd(cmd.Cmd):
 			self._chan.send('\010'*pos)
 			self._chan.send('\000'*len(curr_line))
 			self._chan.send('\010'*len(curr_line))
-
+			
 		def add_line_to_history(curr_line):
 			self._cmd_history.append(curr_line)
 			if len(self._cmd_history) > self.max_history:
@@ -191,8 +191,10 @@ class SSHCmd(cmd.Cmd):
 						pos -= 1
 
 			elif data == '\t': # tab
-				if len(line) == 0:
-					cmd, _, _ = self.parseline(''.join(line))
+				if tab_ctr == 0:
+					tab_line = line
+				if ' ' in line: # complete arguments
+					cmd, args, _ = self.parseline(''.join(tab_line))
 					if cmd == None or cmd == '':
 						compfunc = self.completedefault
 					else:
@@ -200,15 +202,23 @@ class SSHCmd(cmd.Cmd):
 							compfunc = getattr(self, 'complete_' + cmd)
 						except AttributeError:
 							compfunc = self.completedefault
-				else:
-					compfunc = self.completenames
-				if tab_ctr == 0:
-					tab_line = line
-				self.completion_matches = compfunc(''.join(tab_line), ''.join(tab_line), 0, len(tab_line))
-				if tab_ctr >= 1 and len(self.completion_matches) == 1:
-					continue
-				clear_prompt(line, pos)
-				line = list(self.completion_matches[tab_ctr % len(self.completion_matches)])
+					self.completion_matches = compfunc(args, tab_line, 0, len(tab_line))
+					if len(self.completion_matches) > 0:
+						if tab_ctr >= 1 and len(self.completion_matches) == 1:
+							continue
+					clear_prompt(line, pos)
+					if len(self.completion_matches) > 0:
+						carg = self.completion_matches[tab_ctr % len(self.completion_matches)]
+						line = list(' '.join([cmd, carg]))
+				else: # complete commands
+					self.completion_matches = self.completenames(
+						''.join(tab_line), ''.join(tab_line), 0, len(tab_line))
+					if len(self.completion_matches) > 0:
+						if tab_ctr >= 1 and len(self.completion_matches) == 1:
+							continue
+					clear_prompt(line, pos)
+					if len(self.completion_matches) > 0:
+						line = list(self.completion_matches[tab_ctr % len(self.completion_matches)])
 				self._chan.send(''.join(line).strip())
 				pos = len(line)
 				tab_ctr += 1
