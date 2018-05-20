@@ -5,7 +5,6 @@
 import json
 import jsonschema
 
-
 class ConfigStore(object):
 	"""One stop shop for managing the various config files modules will need."""
 	_configs = {}
@@ -16,21 +15,21 @@ class ConfigStore(object):
 		def extend_with_default(validator_class):
 			validate_properties = validator_class.VALIDATORS["properties"]
 			def set_defaults(validator, properties, instance, schema):
-					for property, subschema in properties.iteritems():
-							if "default" in subschema:
-									instance.setdefault(property, subschema["default"])
-					for error in validate_properties(
-							validator, properties, instance, schema,
-					):
-							yield error
+				for property, subschema in properties.items():
+					if "default" in subschema:
+						instance.setdefault(property, subschema["default"])
+				for error in validate_properties(
+					validator, properties, instance, schema,
+				):
+					yield error
 			return jsonschema.validators.extend(
-					validator_class, {"properties" : set_defaults},
+				validator_class, {"properties" : set_defaults},
 			)
-
 		if cls is None:
 			cls = jsonschema.validators.validator_for(schema)
 		dcls = extend_with_default(cls)
-		dcls.check_schema(schema)
+		# NOTE: using the base class here is a workaround to avoid a bug in this example
+		cls.check_schema(schema)
 		dcls(schema, *args, **kwargs).validate(instance)
 
 	@staticmethod
