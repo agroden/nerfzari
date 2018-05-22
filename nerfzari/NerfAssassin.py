@@ -79,6 +79,20 @@ class NerfAssassin(Game):
 		assassinated.deaths += 1
 		assassinated.assassinator = assassin_handle
 
+		if assassinated.hunter_handle != assassin.handle:
+			hunter_of_assassinated = self.get_participant(assassinated.hunter_handle)
+			if hunter_of_assassinated is None:
+				print("ERROR: " + assassinated_handle + "'s hunter " + assassinated.hunter_handle + " is not a participant in " + self.name)
+				return False
+			print("Assinging " + hunter_of_assassinated.handle + " a new target " + assassinated.target_handle)
+			hunter_of_assassinated.target_handle = assassinated.target_handle
+			assassin.hunter_handle = hunter_of_assassinated.handle
+		else:
+			new_target = self.get_participant(assassinated.target_handle)
+			assassin.target_handle = new_target.handle
+			new_target.hunter_handle = assassin.handle
+
+
 		return True
 	# -------------------------------------------------------------------------
 
@@ -88,6 +102,10 @@ class NerfAssassin(Game):
 		:param game_id: Unique id of the game to add the user to
 		:return: True if user has been successfully added to the game; otherwise False is returned.
 		"""
+
+		if self.get_participant(user.handle) is not None:
+			print("ERROR: " + user.handle + " is already a participant in " + self.name)
+			return False
 		self.participants.append(user)
 
 		return True
@@ -98,18 +116,45 @@ class NerfAssassin(Game):
 		:param handle: The handle of the participant to retrieve
 		:return: User object of the participant; otherwise None is returned
 		"""
-		participant: str
 
 		for user in self.participants[:]:
 			if user.handle == handle:
-				participant = user
-		return participant
+				return user
+
+		return None
 	# -------------------------------------------------------------------------
 
 	def distribute_targets(self):
 		"""
+		This function should only be called once to start the game, all other target reassignments are performed on a
+		per kill basis
 		:return: True if all participants were assigned a target; otherwise False is returned.
 		"""
+		import random
 
-		raise NotImplementedError()
+
+
+		#target_assignments = random.sample(range(num_participants),num_participants)
+
+		#for i in range(num_participants):
+		#	assassin = self.participants[target_assignments[i]]
+		#	target = self.participants[target_assignments[(i+1) % num_participants]]
+		#	assassin.target_handle = target.handle
+		#	target.hunter_handle = assassin.handle
+
+
+		#random.shuffle(self.participants) ##################### UNCOMMENT THIS@@@@@@@@@@@@@@@@@@@@@@@@@
+
+		num_participants = len(self.participants)
+		for i,participant in enumerate(self.participants):
+
+			if i != (num_participants-1):
+				participant.target_handle = self.participants[i+1].handle
+			else:
+				participant.target_handle = self.participants[0].handle
+
+			if i != 0:
+				participant.hunter_handle = self.participants[i-1].handle
+			else:
+				participant.hunter_handle = self.participants[-1].handle
 	# -------------------------------------------------------------------------

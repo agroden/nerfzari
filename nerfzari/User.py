@@ -5,7 +5,8 @@ class User():
 	first_name: str
 	last_name: str
 	handle: str
-	target: str
+	target_handle: str
+	hunter_handle: str
 	kills: List[str] # List of handles of participants assassinated
 	deaths: int
 	is_alive: bool
@@ -15,7 +16,8 @@ class User():
 		self.first_name = first_name
 		self.last_name = last_name
 		self.handle = handle
-		self.target = ""
+		self.target_handle = ""
+		self.hunter_handle = ""
 		self.kills = []
 		self.deaths = 0
 		self.is_alive = True

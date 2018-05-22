@@ -25,6 +25,7 @@ class Game():
 		self.type = game_type
 		self.name = "Unnamed"
 		self.start_date = 0
+		self.is_started = False
 		self.id = 0
 	# -------------------------------------------------------------------------
 
