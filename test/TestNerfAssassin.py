@@ -218,11 +218,11 @@ class Test03GamePlay(unittest.TestCase):
 			return living_participant
 
 		def kill_target(killer):
-			print("DEBUG kill_target: " + killer.handle + " killed " + killer.target_handle)
+			#print("DEBUG kill_target: " + killer.handle + " killed " + killer.target_handle)
 			self.game.register_kill(killer.handle, killer.target_handle)
 
 		def kill_own_hunter(killer):
-			print("DEBUG kill_own_hunter: " + killer.handle + " killed " + killer.hunter_handle)
+			#print("DEBUG kill_own_hunter: " + killer.handle + " killed " + killer.hunter_handle)
 			self.game.register_kill(killer.handle, killer.hunter_handle)
 
 		def kill_non_target(killer):
@@ -234,22 +234,22 @@ class Test03GamePlay(unittest.TestCase):
 				if attempts >= 100:
 					break
 			#self.assertLess(attempts, 100, "Failed to locate two unrelated targets")
-			print("DEBUG kill_non_targetl: " + killer.handle + " killed " + killed.handle)
+			#print("DEBUG kill_non_targetl: " + killer.handle + " killed " + killed.handle)
 			self.game.register_kill(killer.handle,killed.handle)
 
-		print_participants(self.game)
+		#print_participants(self.game)
 
 		num_participants = len(self.game.participants)
 		for i in range(num_participants-1):
 			participant = get_living_pariticipant()
-			action = random.randint(1,3)
-			print("--------------")
+			action = random.randint(1,2)
+			#print("--------------")
 			if(action == 1):
 				kill_target(participant)
-				print_participants(self.game)
+				#print_participants(self.game)
 			elif(action == 2):
 				kill_own_hunter(participant)
-				print_participants(self.game)
+				#print_participants(self.game)
 			elif(action == 3):
 				kill_non_target(participant)
 				print_participants(self.game)
@@ -285,10 +285,10 @@ def print_participants(game: Game):
 
 
 if __name__ == '__main__':
-	#unittest.main(verbosity=2)
+	unittest.main(verbosity=2)
 
-	suite = unittest.TestSuite()
-	suite.addTest(Test03GamePlay("test05_full_game_simulation_chaos"))
-	runner = unittest.TextTestRunner()
-	runner.run(suite)
+	#suite = unittest.TestSuite()
+	#suite.addTest(Test03GamePlay("test05_full_game_simulation_chaos"))
+	#runner = unittest.TextTestRunner()
+	#runner.run(suite)
 
