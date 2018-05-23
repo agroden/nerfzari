@@ -1,13 +1,52 @@
 from datetime import datetime
 from typing import List
-import User
-from Game import Game,GameType
+from GameEngine import Game,GameType
+import FakeDatabase as database
+
+
+###################
+### Participant ###
+###################
+
+class Participant:
+	user_id: int
+	handle: str
+	target_handle: str
+	hunter_handle: str
+	is_alive: bool
+	assassinator: str
+
+	def __init__(self, user_id: int, handle: str):
+		self.user_id = user_id
+		self.handle = handle
+		self.target_handle = ""
+		self.hunter_handle = ""
+		self.is_alive = True
+		self.assassinator = ""
+
+	def __str__(self):
+		string = str(self.user_id)
+		string += " - "
+		string += self.handle
+		string += " - "
+		if self.is_alive:
+			string += "Alive"
+			string += " - Target: "
+			string += self.target_handle
+		else:
+			string += "Dead. Killed by "
+			string += self.assassinator
+		return string
+
+#####################
+### Nerf Assassin ###
+#####################
 
 class NerfAssassin(Game):
 
 	GAME_TYPE = GameType.NERF_ASSASSIN
 	TYPE_NAME = "Nerf Assassin"
-	participants: List['User']
+	participants: List[Participant]
 
 	def __init__(self, name: str, start_date: datetime):
 		super().__init__(self.GAME_TYPE)
@@ -18,18 +57,7 @@ class NerfAssassin(Game):
 	# -------------------------------------------------------------------------
 
 	def __str__(self):
-		return str(self.id) + " - " + self.TYPE_NAME + " - " + self.name + " - " + str(self.start_date)
-
-	# -------------------------------------------------------------------------
-
-	def leaderboard(self):
-		"""
-		:returns: True if leaderboard is successfully printed; otherwise False is returned.
-		"""
-		print("--- " + str(self) + " ---")
-		for index,participant in enumerate(self.participants):
-			print(str(index+1) + " - " + str(participant))
-		return True
+		return str(self.id) + " - " + self.name + " - " + self.TYPE_NAME
 	# -------------------------------------------------------------------------
 
 	def status(self, handle: str):
@@ -41,19 +69,8 @@ class NerfAssassin(Game):
 		if participant is None:
 			print("ERROR: Assassin " + handle + " is not a participant in " + self.name)
 			return False
+		print(str(participant))
 
-		msg = "Name: "
-		msg += participant.first_name
-		msg += " "
-		msg += participant.last_name
-		msg += " Handle: "
-		msg += participant.handle
-		msg += " Kills "
-		msg += str(len(participant.kills))
-		msg += " Target: "
-		msg += participant.target
-
-		print(msg)
 		return True
 	# -------------------------------------------------------------------------
 
@@ -85,9 +102,9 @@ class NerfAssassin(Game):
 			print("ERROR: participant " + assassinated.handle + " is not alive and thus cannot be assassinated by " + assassin.handle)
 			return False
 
-		assassin.kills.append(assassinated_handle)
+		database.register_kill(assassin.user_id)
 		assassinated.is_alive = False
-		assassinated.deaths += 1
+		database.register_death(assassinated.user_id)
 		assassinated.assassinator = assassin_handle
 
 		if assassin.handle != assassinated.hunter_handle:
@@ -112,30 +129,39 @@ class NerfAssassin(Game):
 		return True
 	# -------------------------------------------------------------------------
 
-	def add_participant(self, user: User):
+	def add_participant(self, user_id: int, handle: str) -> bool:
 		"""
-		:param user: Object of the user to add
+		:param user_id: Unique id of the user to add
+		:param handle: Unique printable name or identifier for the user during the game
 		:return: True if user has been successfully added to the game; otherwise False is returned.
 		"""
 
-		if self.get_participant(user.handle) is not None:
-			print("ERROR: " + user.handle + " is already a participant in " + self.name)
+		participant_exists = False
+		for participant in self.participants[:]:
+			if participant.handle == handle:
+				participant_exists = True
+				break
+
+		if participant_exists:
+			print("ERROR: " + handle + " is already a participant in " + self.name)
 			return False
-		self.participants.append(user)
+
+		self.participants.append(Participant(user_id,handle))
 
 		return True
 	# -------------------------------------------------------------------------
 
-	def get_participant(self, handle) -> User:
+	def get_participant(self, handle) -> Participant:
 		"""
 		:param handle: The handle of the participant to retrieve
-		:return: User object of the participant; otherwise None is returned
+		:return: object of the participant matching the given handle; otherwise None is returned
 		"""
 
-		for user in self.participants[:]:
-			if user.handle == handle:
-				return user
+		for participant in self.participants[:]:
+			if participant.handle == handle:
+				return participant
 
+		print("ERROR get_participant: participant with handle " + handle + " not found.")
 		return None
 	# -------------------------------------------------------------------------
 

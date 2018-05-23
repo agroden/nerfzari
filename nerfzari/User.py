@@ -4,45 +4,42 @@ class User:
 
 	first_name: str
 	last_name: str
-	handle: str
-	target_handle: str
-	hunter_handle: str
-	kills: List[str] # List of handles of participants assassinated
+	kills: int
 	deaths: int
-	is_alive: bool
-	assassinator: str
+	games_participated_in: List[int]
+	games_won: List[int]
 
-	def __init__(self, first_name, last_name, handle):
+	def __init__(self, first_name, last_name):
 		self.first_name = first_name
 		self.last_name = last_name
-		self.handle = handle
-		self.target_handle = ""
-		self.hunter_handle = ""
-		self.kills = []
+		self.kills = 0
 		self.deaths = 0
-		self.is_alive = True
-		self.assassinator = ""
+	# -------------------------------------------------------------------------
 
 	def __str__(self):
 
-		string = self.handle + " - " + str(len(self.kills)) + " Kills - "
-
-		if(self.is_alive):
-			string += "Alive"
-		else:
-			string += "Assassinated by " + self.assassinator
+		string = self.first_name
+		string += " "
+		string += self.last_name
 		return string
-
 	# -------------------------------------------------------------------------
 
-	def status(self, user: 'User'):
+	def status(self):
 		"""
-		:param user: User object of the user to print the status of (name, handle, kills, deaths, etc)
 		:returns: True if status has been successfully retrieved and printed; otherwise False is returned.
 		"""
 
-		raise NotImplementedError()
-
+		status = self.first_name
+		status += " "
+		status += self.last_name
+		status += " - "
+		status += str(self.kills)
+		status += " Kills - "
+		status += str(self.deaths)
+		status += " Deaths - "
+		status += str(self.kill_death_ratio)
+		status += " K/D"
+		return status
 	# -------------------------------------------------------------------------
 
 	@property
@@ -50,6 +47,5 @@ class User:
 		"""
 		:return: number of kills divided by the num.
 		"""
-		return len(self.kills) / self.deaths
-
+		return self.kills / self.deaths
 	# -----------------------------------------------------------------------

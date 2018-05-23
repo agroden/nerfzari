@@ -1,9 +1,12 @@
 from datetime import datetime
 from enum import Enum
-
+import FakeDatabase as database
 from User import User
 
-import FakeDatabase as database
+
+#################
+### Game Type ###
+#################
 
 class GameType(Enum):
 	def __str__(self):
@@ -12,6 +15,10 @@ class GameType(Enum):
 	NERF_ASSASSIN = 1
 	TEAM_ASSASSIN = 2
 	NERF_ZOMBIE = 3
+
+#################
+### Game Type ###
+#################
 
 class Game:
 	"""Base Class for all games. """
@@ -34,6 +41,21 @@ class Game:
 
 	# -------------------------------------------------------------------------
 
+###################
+### Game Engine ###
+###################
+
+def new_user(first_name: str, last_name:str):
+	"""
+	:param first_name: The first name of the new user
+	:param last_name: The last name of the new user
+	:return: The unique user id of the new user; if an error occurred -1 is returned
+	"""
+	user = User(first_name,last_name)
+	user_id = database.add_user(user)
+	return user_id
+# -----------------------------------------------------------------------------
+
 def new_game(game_type: GameType, name: str, start_date: datetime) -> Game:
 	"""
 	:param game_type: Enum value defining the type of game to create
@@ -47,11 +69,9 @@ def new_game(game_type: GameType, name: str, start_date: datetime) -> Game:
 		from NerfAssassin import NerfAssassin
 		game = NerfAssassin(name,start_date)
 	elif game_type == GameType.TEAM_ASSASSIN:
-		from TeamAssassin import TeamAssassin
-		game = TeamAssassin(name,start_date)
+		raise NotImplementedError()
 	elif game_type == GameType.NERF_ZOMBIE:
-		from NerfZombie import NerfZombie
-		game = NerfZombie(name,start_date)
+		raise NotImplementedError()
 	else:
 		print("ERROR: Unknown GameType " + str(game_type))
 		return None
@@ -70,18 +90,20 @@ def get_game(game_id: int):
 	return database.get_game(game_id)  # TODO: This needs to be replaced with a real database call
 # -------------------------------------------------------------------------
 
-def leaderboard(game_id: int):
+def leaderboard():
 	"""
-	:param game_id: Unique id of the game to print the leaderboard of
 	:returns: True if leaderboard is successfully printed; otherwise False is returned.
 	"""
 
-	game = database.get_game(game_id)      # TODO: This needs to be replaced with a real database call
-	return game.leaderboard()
+	# Fetch all users
+	# Sort by K/D ratio where kills are greater than some magic number or calculated number
+	# print them
+
+	raise NotImplementedError()
 
 # -------------------------------------------------------------------------
 
-def register_kill(assassin_handle: str, assassinated_handle: str, game_id: int):
+def register_kill(game_id: int, assassin_handle: str, assassinated_handle: str):
 	"""
 	:param assassin_handle: Handle of the assassin that performed the kill
 	:param assassinated_handle: Handle of the participant that was assassinated
@@ -92,15 +114,16 @@ def register_kill(assassin_handle: str, assassinated_handle: str, game_id: int):
 	return game.register_kill(assassin_handle,assassinated_handle)
 # -------------------------------------------------------------------------
 
-def add_participant(game_id: int, user: User):
+def add_participant(game_id: int, user_id: int, handle: str):
 	"""
-	:param user: Name of the user to add
 	:param game_id: Unique id of the game to add the user to
+	:param user_id: Unique id of the user to add to the specified game
+	:param handle: Unique printable name or identifier for the user during the game
 	:returns: True if user has been successfully added to the game; otherwise False is returned.
 	"""
 
 	game = database.get_game(game_id)      # TODO: This needs to be replaced with a real database call
-	return game.add_participant(user)
+	return game.add_participant(user_id,handle)
 # -------------------------------------------------------------------------
 
 def remove_participant(game_id: int, user: str):

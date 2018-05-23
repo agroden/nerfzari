@@ -2,8 +2,9 @@ import unittest
 import random
 from datetime import datetime
 from User import User
-from NerfAssassin import NerfAssassin
-import Game
+from NerfAssassin import NerfAssassin,Participant
+import GameEngine
+import FakeDatabase as database
 
 
 from contextlib import redirect_stdout
@@ -16,11 +17,12 @@ from io import StringIO
 
 class Test01GameSetup(unittest.TestCase):
 
-	game: Game
+	game: NerfAssassin
 
 	def setUp(self):
 		self.game = NerfAssassin("Test Game", datetime.now())
 		self.assertIsNotNone(self.game)
+		database.start_unittest_mode()
 	# --------------------------------------------------------------------------
 
 	def tearDown(self):
@@ -28,21 +30,30 @@ class Test01GameSetup(unittest.TestCase):
 	# --------------------------------------------------------------------------
 
 	def test01_adding_participants(self):
+		assassin1_id = GameEngine.new_user("Ass", "Assin1")
+		self.assertGreaterEqual(assassin1_id,0)
+		assassin2_id = GameEngine.new_user("Ass", "Assin2")
+		self.assertGreaterEqual(assassin2_id,0)
+		assassin3_id = GameEngine.new_user("Ass", "Assin3")
+		self.assertGreaterEqual(assassin3_id,0)
+
 
 		self.assertEqual(0, len(self.game.participants))
-		self.assertTrue(self.game.add_participant(User("Ass", "Assin1", "Assassin1")))
+		self.assertTrue(self.game.add_participant(assassin1_id, "Assassin1"))
 		self.assertEqual(1, len(self.game.participants))
-		self.assertTrue(self.game.add_participant(User("Ass", "Assin2", "Assassin2")))
+		self.assertTrue(self.game.add_participant(assassin2_id, "Assassin2"))
 		self.assertEqual(2, len(self.game.participants))
-		self.assertTrue(self.game.add_participant(User("Ass", "Assin3", "Assassin3")))
+		self.assertTrue(self.game.add_participant(assassin3_id, "Assassin3"))
 		self.assertEqual(3, len(self.game.participants))
 	# --------------------------------------------------------------------------
 
 	def test02_adding_duplicate_participant(self):
 
-		user = User("Ass", "Assin2", "Assassin2")
-		self.assertTrue(self.game.add_participant(user))
-		self.assertFalse(self.game.add_participant(user))
+		assassin2_id = GameEngine.new_user("Ass", "Assin2")
+		self.assertGreaterEqual(assassin2_id, 0)
+
+		self.assertTrue(self.game.add_participant(assassin2_id, "Assassin2"))
+		self.assertFalse(self.game.add_participant(assassin2_id, "Assassin2"))
 		self.assertEqual(1, len(self.game.participants))
 	# --------------------------------------------------------------------------
 
@@ -54,14 +65,19 @@ class Test02TargetDistribution(unittest.TestCase):
 
 	MIN_NUM_PARTICIPANTS = 100
 	MAX_NUM_PARTICIPANTS = 1000
-	game: Game
+	game: NerfAssassin
 
 	def setUp(self):
+
+		database.start_unittest_mode()
+
 		self.game = NerfAssassin("Test Game", datetime.now())
 		self.assertIsNotNone(self.game)
 
 		for i in range(random.randint(self.MIN_NUM_PARTICIPANTS,self.MAX_NUM_PARTICIPANTS)):
-			self.assertTrue(self.game.add_participant(User("Ass", "Assin" + str(i), "Assassin" + str(i))))
+			user_id = GameEngine.new_user("Ass", "Assin" + str(i))
+			self.assertGreaterEqual(user_id,0)
+			self.assertTrue(self.game.add_participant(user_id, "Assassin" + str(i)))
 
 		self.game.distribute_targets()
 	# --------------------------------------------------------------------------
@@ -117,14 +133,18 @@ class Test03GamePlay(unittest.TestCase):
 
 	MIN_NUM_PARTICIPANTS = 100
 	MAX_NUM_PARTICIPANTS = 1000
-	game: Game
+	game: NerfAssassin
 
 	def setUp(self):
+		database.start_unittest_mode()
+
 		self.game = NerfAssassin("Test Game", datetime.now())
 		self.assertIsNotNone(self.game)
 
 		for i in range(random.randint(self.MIN_NUM_PARTICIPANTS,self.MAX_NUM_PARTICIPANTS)):
-			self.assertTrue(self.game.add_participant(User("Ass", "Assin" + str(i), "Assassin" + str(i))))
+			user_id = GameEngine.new_user("Ass", "Assin" + str(i))
+			self.assertGreaterEqual(user_id,0)
+			self.assertTrue(self.game.add_participant(user_id, "Assassin" + str(i)))
 
 		self.game.distribute_targets()
 	# --------------------------------------------------------------------------
@@ -142,7 +162,7 @@ class Test03GamePlay(unittest.TestCase):
 		return num_alive
 	# --------------------------------------------------------------------------
 
-	def get_living_pariticipant(self) -> User:
+	def get_living_pariticipant(self) -> Participant:
 		living_participants = [x for x in self.game.participants if x.is_alive]
 		num_living_participants = len(living_participants)
 		if num_living_participants < 1:
@@ -152,19 +172,34 @@ class Test03GamePlay(unittest.TestCase):
 
 	# --------------------------------------------------------------------------
 
+	def get_num_kills(self,user_id) -> int:
+		user = database.get_user(user_id)
+		self.assertIsNotNone(user)
+		return user.kills
+	# --------------------------------------------------------------------------
+
+	def get_num_deaths(self,user_id) -> int:
+		user = database.get_user(user_id)
+		self.assertIsNotNone(user)
+		return user.deaths
+	# --------------------------------------------------------------------------
+
 	def test01_target_kill(self):
 
 		participant = random.choice(self.game.participants)
 		self.assertIsNotNone(participant)
 		target = self.game.get_participant(participant.target_handle)
 		self.assertIsNotNone(target)
-		prev_num_kills = len(participant.kills)
+
+		prev_num_kills = self.get_num_kills(participant.user_id)
 		prev_targets_target = target.target_handle
+		prev_num_deaths = self.get_num_deaths(target.user_id)
 
 		self.game.register_kill(participant.handle, target.handle)
 		self.assertFalse(target.is_alive)
 		self.assertEqual(target.assassinator, participant.handle)
-		self.assertEqual(len(participant.kills),prev_num_kills+1)
+		self.assertEqual(self.get_num_deaths(target.user_id),prev_num_deaths+1)
+		self.assertEqual(self.get_num_kills(participant.user_id),prev_num_kills+1)
 
 		# Ensure participant's target was changed to the target of the killed
 		self.assertEqual(participant.target_handle, prev_targets_target)
@@ -182,13 +217,15 @@ class Test03GamePlay(unittest.TestCase):
 		hunter = self.game.get_participant(participant.hunter_handle)
 		self.assertIsNotNone(hunter)
 
-		prev_num_kills = len(participant.kills)
+		prev_num_kills = self.get_num_kills(participant.user_id)
 		prev_target = participant.target_handle
+		prev_num_deaths = self.get_num_deaths(hunter.user_id)
 
 		self.game.register_kill(participant.handle, participant.hunter_handle)
 		self.assertFalse(hunter.is_alive)
 		self.assertEqual(hunter.assassinator, participant.handle)
-		self.assertEqual(len(participant.kills), prev_num_kills + 1)
+		self.assertEqual(self.get_num_deaths(hunter.user_id), prev_num_deaths + 1)
+		self.assertEqual(self.get_num_kills(participant.user_id), prev_num_kills + 1)
 		self.assertEqual(participant.target_handle, prev_target) # Ensure target of participant didn't change
 
 		#Ensure hunter's hunter is assigned to the killer
@@ -215,13 +252,15 @@ class Test03GamePlay(unittest.TestCase):
 				break
 		self.assertLess(attempts,max_num_attempts,"Failed to locate two unrelated targets")
 
-		prev_num_kills = len(killer.kills)
+		prev_num_kills = self.get_num_kills(killer.user_id)
 		prev_target = killer.target_handle
+		prev_num_deaths = self.get_num_deaths(killed.user_id)
 
 		self.game.register_kill(killer.handle,killed.handle)
 		self.assertFalse(killed.is_alive)
 		self.assertEqual(killed.assassinator, killer.handle)
-		self.assertEqual(len(killer.kills), prev_num_kills + 1)
+		self.assertEqual(self.get_num_deaths(killed.user_id), prev_num_deaths + 1)
+		self.assertEqual(self.get_num_kills(killer.user_id), prev_num_kills + 1)
 		self.assertEqual(killer.target_handle, prev_target) # Ensure target of killer didn't change
 
 		#Ensure killed assassin's hunter is assigned to the killer
@@ -319,8 +358,7 @@ class Test03GamePlay(unittest.TestCase):
 ############
 
 
-def print_participants(game: Game):
-
+def print_participants(game: NerfAssassin):
 	print("##### " + game.name + " Participants" + " #####")
 	for participant in game.participants[:]:
 		if participant.is_alive:
@@ -334,8 +372,14 @@ def run_specific_test(test):
 	suite.addTest(test)
 	runner = unittest.TextTestRunner()
 	runner.run(suite)
+# -------------------------------------------------------------------------
 
 if __name__ == '__main__':
+
+	#unittest.main(verbosity=2)
+
+	#run_specific_test(Test03GamePlay("test03_non_target_kill"))
+
 	with redirect_stdout(StringIO()) as stdout:
 		unittest.main(verbosity=2)
 
