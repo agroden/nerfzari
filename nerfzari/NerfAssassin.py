@@ -79,19 +79,22 @@ class NerfAssassin(Game):
 		assassinated.deaths += 1
 		assassinated.assassinator = assassin_handle
 
-		if assassinated.hunter_handle != assassin.handle:
+		if assassin.handle != assassinated.hunter_handle:
 			hunter_of_assassinated = self.get_participant(assassinated.hunter_handle)
 			if hunter_of_assassinated is None:
 				print("ERROR: " + assassinated_handle + "'s hunter " + assassinated.hunter_handle + " is not a participant in " + self.name)
 				return False
-			#print("Assinging " + hunter_of_assassinated.handle + " a new target " + assassinated.target_handle)
+			target_of_assassinated = self.get_participant(assassinated.target_handle)
+			if target_of_assassinated is None:
+				print("ERROR: " + assassinated_handle + "'s target " + assassinated.target_handle + " is not a participant in " + self.name)
+				return False
 			hunter_of_assassinated.target_handle = assassinated.target_handle
-			assassin.hunter_handle = hunter_of_assassinated.handle
+			target_of_assassinated.hunter_handle = hunter_of_assassinated.handle
+
 		else:
 			new_target = self.get_participant(assassinated.target_handle)
 			assassin.target_handle = new_target.handle
 			new_target.hunter_handle = assassin.handle
-
 
 		return True
 	# -------------------------------------------------------------------------
@@ -133,7 +136,7 @@ class NerfAssassin(Game):
 		import random
 
 		random.shuffle(self.participants)
-
+		
 		num_participants = len(self.participants)
 		for i,participant in enumerate(self.participants):
 

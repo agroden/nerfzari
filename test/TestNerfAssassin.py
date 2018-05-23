@@ -48,8 +48,8 @@ class Test01GameSetup(unittest.TestCase):
 
 class Test02TargetDistribution(unittest.TestCase):
 
-	MIN_NUM_PARTICIPANTS = 3
-	MAX_NUM_PARTICIPANTS = 100
+	MIN_NUM_PARTICIPANTS = 100
+	MAX_NUM_PARTICIPANTS = 1000
 	game: Game
 
 	def setUp(self):
@@ -111,8 +111,8 @@ class Test02TargetDistribution(unittest.TestCase):
 
 class Test03GamePlay(unittest.TestCase):
 
-	MIN_NUM_PARTICIPANTS = 3
-	MAX_NUM_PARTICIPANTS = 10
+	MIN_NUM_PARTICIPANTS = 100
+	MAX_NUM_PARTICIPANTS = 1000
 	game: Game
 
 	def setUp(self):
@@ -132,7 +132,9 @@ class Test03GamePlay(unittest.TestCase):
 	def test01_target_kill(self):
 
 		participant = random.choice(self.game.participants)
+		self.assertIsNotNone(participant)
 		target = self.game.get_participant(participant.target_handle)
+		self.assertIsNotNone(target)
 		prev_num_kills = len(participant.kills)
 		prev_targets_target = target.target_handle
 
@@ -140,7 +142,14 @@ class Test03GamePlay(unittest.TestCase):
 		self.assertFalse(target.is_alive)
 		self.assertEqual(target.assassinator, participant.handle)
 		self.assertEqual(len(participant.kills),prev_num_kills+1)
-		self.assertEqual(participant.target_handle,prev_targets_target)
+
+		# Ensure participant's target was changed to the target of the killed
+		self.assertEqual(participant.target_handle, prev_targets_target)
+
+		# Ensure new target's hunter was updated to be the participant
+		new_target = self.game.get_participant(participant.target_handle)
+		self.assertIsNotNone(new_target)
+		self.assertEqual(new_target.hunter_handle, participant.handle)
 	# --------------------------------------------------------------------------
 
 	def test02_kill_own_hunter(self):
@@ -163,35 +172,47 @@ class Test03GamePlay(unittest.TestCase):
 		hunters_hunter = self.game.get_participant(hunter.hunter_handle)
 		self.assertIsNotNone(hunters_hunter)
 		self.assertEqual(hunters_hunter.target_handle, participant.handle)
+
+		#Ensure participant was updated with its new hunter
+		self.assertEqual(participant.hunter_handle, hunters_hunter.handle)
 	# --------------------------------------------------------------------------
 
 	def test03_non_target_kill(self):
 
-		participant = random.choice(self.game.participants)
-		killed = random.choice(self.game.participants)
+		max_num_attempts = len(self.game.participants) * 10
 		attempts = 0
-		while participant.target_handle == killed.handle or killed.target_handle == participant.handle or participant.handle == killed.handle:
-			participant = random.choice(self.game.participants)
+		while True:
+			killer = random.choice(self.game.participants)
+			killed = random.choice(self.game.participants)
 			attempts += 1
-			if attempts >= 100:
+			if (killer.target_handle != killed.handle \
+	      and killed.target_handle != killer.handle \
+			and killer.handle != killed.handle \
+			and killed.is_alive \
+			and killer.is_alive) \
+			or attempts >= max_num_attempts:
 				break
-		self.assertLess(attempts,100,"Failed to locate two unrelated targets")
+		self.assertLess(attempts,max_num_attempts,"Failed to locate two unrelated targets")
 
-		prev_num_kills = len(participant.kills)
-		prev_target = participant.target_handle
+		prev_num_kills = len(killer.kills)
+		prev_target = killer.target_handle
 
-		self.game.register_kill(participant.handle,killed.handle)
+		self.game.register_kill(killer.handle,killed.handle)
 		self.assertFalse(killed.is_alive)
-		self.assertEqual(killed.assassinator, participant.handle)
-		self.assertEqual(len(participant.kills), prev_num_kills + 1)
-		self.assertEqual(participant.target_handle, prev_target) # Ensure target of participant didn't change
+		self.assertEqual(killed.assassinator, killer.handle)
+		self.assertEqual(len(killer.kills), prev_num_kills + 1)
+		self.assertEqual(killer.target_handle, prev_target) # Ensure target of killer didn't change
 
 		#Ensure killed assassin's hunter is assigned to the killer
 		killeds_hunter = self.game.get_participant(killed.hunter_handle)
 		self.assertIsNotNone(killeds_hunter)
 		self.assertEqual(killeds_hunter.target_handle, killed.target_handle)
-	# --------------------------------------------------------------------------
 
+		#Ensure killed assassin's target is updated with its new hunter
+		killeds_target = self.game.get_participant(killed.target_handle)
+		self.assertIsNotNone(killeds_target)
+		self.assertEqual(killeds_target.hunter_handle, killeds_hunter.handle)
+	# --------------------------------------------------------------------------
 
 	def test04_full_game_simulation(self):
 
@@ -212,47 +233,47 @@ class Test03GamePlay(unittest.TestCase):
 	def test05_full_game_simulation_chaos(self):
 
 		def get_living_pariticipant():
-			living_participant = random.choice(self.game.participants)
-			while not living_participant.is_alive:
+			max_num_attempts = len(self.game.participants) * 10
+			attempts = 0
+			while True:
 				living_participant = random.choice(self.game.participants)
+				attempts += 1
+				if living_participant.is_alive or attempts >= max_num_attempts:
+					break;
+			self.assertTrue(living_participant.is_alive)
 			return living_participant
 
 		def kill_target(killer):
-			#print("DEBUG kill_target: " + killer.handle + " killed " + killer.target_handle)
 			self.game.register_kill(killer.handle, killer.target_handle)
 
 		def kill_own_hunter(killer):
-			#print("DEBUG kill_own_hunter: " + killer.handle + " killed " + killer.hunter_handle)
 			self.game.register_kill(killer.handle, killer.hunter_handle)
 
 		def kill_non_target(killer):
-			killed = random.choice(self.game.participants)
+			max_num_attempts = len(self.game.participants)*10
 			attempts = 0
-			while killer.target_handle == killed.handle or killed.target_handle == killer.handle or killer.handle == killed.handle:
+			while True:
 				killed = get_living_pariticipant()
 				attempts += 1
-				if attempts >= 100:
+				if (killer.target_handle != killed.handle \
+				and killed.target_handle != killer.handle \
+				and killer.handle != killed.handle) \
+				or attempts >= max_num_attempts:
 					break
-			#self.assertLess(attempts, 100, "Failed to locate two unrelated targets")
-			#print("DEBUG kill_non_targetl: " + killer.handle + " killed " + killed.handle)
+			self.assertTrue(killer.is_alive)
+			self.assertTrue(killed.is_alive)
 			self.game.register_kill(killer.handle,killed.handle)
-
-		#print_participants(self.game)
 
 		num_participants = len(self.game.participants)
 		for i in range(num_participants-1):
 			participant = get_living_pariticipant()
-			action = random.randint(1,2)
-			#print("--------------")
-			if(action == 1):
+			action = random.randint(1,3)
+			if action == 1:
 				kill_target(participant)
-				#print_participants(self.game)
-			elif(action == 2):
+			elif action == 2:
 				kill_own_hunter(participant)
-				#print_participants(self.game)
-			elif(action == 3):
+			elif action == 3:
 				kill_non_target(participant)
-				print_participants(self.game)
 			else:
 				self.assertLessEqual(action,3,"Unknown action number " + str(action))
 
@@ -260,8 +281,6 @@ class Test03GamePlay(unittest.TestCase):
 		for participant in self.game.participants[:]:
 			if participant.is_alive:
 				num_alive += 1
-
-
 
 		self.assertEqual(num_alive,1)
 
@@ -278,7 +297,7 @@ def print_participants(game: Game):
 	print("##### " + game.name + " Participants" + " #####")
 	for participant in game.participants[:]:
 		if participant.is_alive:
-			print(participant.handle + " Target: " + participant.target_handle)
+			print(participant.handle + " Target: " + participant.target_handle + " Hunter: " + participant.hunter_handle)
 		else:
 			print(participant.handle + " DEAD")
 # --------------------------------------------------------------------------
