@@ -286,13 +286,31 @@ class Test03GamePlay(unittest.TestCase):
 				break
 			elif killer.handle != target.handle:
 				self.assertTrue(self.game.register_kill(killer.handle, target.handle))
-		self.assertLess(attempts, max_num_attempts, "Failed to locate a living killer and a dead target unrelated targets")
+		self.assertLess(attempts, max_num_attempts, "Failed to locate a living killer and a dead target")
 		self.assertTrue(killer.is_alive)
 		self.assertFalse(target.is_alive)
 		self.assertFalse(self.game.register_kill(killer.handle,target.handle))
 	# --------------------------------------------------------------------------
 
-	def test04_full_game_simulation(self):
+	def test05_kill_already_dead(self):
+
+		max_num_attempts = len(self.game.participants) * 10
+		attempts = 0
+		while True:
+			killer = random.choice(self.game.participants)
+			target = self.get_living_pariticipant()
+			attempts += 1
+			if not killer.is_alive or attempts >= max_num_attempts:
+				break
+			elif killer.handle != target.handle:
+				self.assertTrue(self.game.register_kill(killer.handle, target.handle))
+		self.assertLess(attempts, max_num_attempts, "Failed to locate a living target and a dead killer")
+		self.assertFalse(killer.is_alive)
+		self.assertTrue(target.is_alive)
+		self.assertFalse(self.game.register_kill(killer.handle,target.handle))
+	# --------------------------------------------------------------------------
+
+	def test06_full_game_simulation(self):
 
 		max_num_kill_attempts = len(self.game.participants) * 10
 		kill_attempts = 0
@@ -308,7 +326,7 @@ class Test03GamePlay(unittest.TestCase):
 		self.assertEqual(self.num_living_participants, 1)
 	# --------------------------------------------------------------------------
 
-	def test05_full_game_simulation_chaos(self):
+	def test07_full_game_simulation_chaos(self):
 
 		def kill_target(killer):
 			self.assertTrue(self.game.register_kill(killer.handle, killer.target_handle))
