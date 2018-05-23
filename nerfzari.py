@@ -1,21 +1,48 @@
 """
 """
 
-import cmd2
 import socket
 import logging
 import sys
 import paramiko
-import nerfzari
+from nerfzari import ConfigStore, SSHCmd, SSHServer, Authenticator
+
 
 logging.basicConfig(filename='nerfzari.log', level=logging.DEBUG)
 log = logging.getLogger(__name__)
 
 
-DEFAULT_PORT = 4040
+NERFZARI_CFG_PATH = 'nerfzari.json'
+NERFZARI_CFG_SCHEMA = {
+	'$schema': 'http://json-schema.org/draft-06/schema#',
+	'description': 'Data needed by the Nerfzari server',
+	'type': 'object',
+	'default': {},
+	'required': ['rsa_key'],
+	'properties': {
+		'listen_port': {
+			'type': 'integer',
+			'default': 4040
+		},
+		'rsa_key': { 'type': 'string' },
+		'auth_cls': {
+			'type': 'string',
+			'default': 'AcceptAll'
+		},
+		'module_dir': {
+			'type': 'string',
+			'default':	'modules'
+		}
+	}
+}
+
+ConfigStore.register(
+	NERFZARI_CFG_PATH,
+	NERFZARI_CFG_SCHEMA
+)
 
 
-class NerfzariCmd(nerfzari.SSHCmd):
+class NerfzariCmd(SSHCmd):
 	# actions:
 	# create game - need start date, name, game type
 	# register for game (before game start)
@@ -56,15 +83,14 @@ class NerfzariCmd(nerfzari.SSHCmd):
 
 
 if __name__ == '__main__':
-	# TODO: read config from a config file
-	host_key = paramiko.RSAKey(filename='test/key.pem')
-	ldap_host = 'localhost'
+	ConfigStore.load_all()
+	cfg = ConfigStore.get(NERFZARI_CFG_PATH)
+	host_key = paramiko.RSAKey(filename=cfg['rsa_key'])
 	# TODO: make this safer for a daemon
-
 	try:
 		sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
 		sock.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
-		sock.bind(('', DEFAULT_PORT))
+		sock.bind(('', cfg['listen_port']))
 	except socket.error as err:
 		log.error('Bind failed: {}'.format(str(err)))
 		sys.exit(1)
@@ -80,7 +106,8 @@ if __name__ == '__main__':
 		trans = paramiko.Transport(conn)
 		trans.set_gss_host(socket.getfqdn(''))
 		trans.add_server_key(host_key)
-		server = nerfzari.SSHServer() # nerfzari.LDAPAuthenticator(ldap_host)
+		auth = Authenticator.make(cfg['auth_cls'])
+		server = SSHServer(auth)
 		try:
 			trans.start_server(server=server)
 			print('server started')
