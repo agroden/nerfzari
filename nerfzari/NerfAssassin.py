@@ -1,5 +1,5 @@
 from datetime import datetime
-from typing import List,Any
+from typing import List
 import User
 from Game import Game,GameType
 
@@ -39,7 +39,7 @@ class NerfAssassin(Game):
 		"""
 		participant = self.get_participant(handle)
 		if participant is None:
-			print("ERROR: Assassin " + participant + " is not a participant in " + self.name)
+			print("ERROR: Assassin " + handle + " is not a participant in " + self.name)
 			return False
 
 		msg = "Name: "
@@ -61,9 +61,12 @@ class NerfAssassin(Game):
 		"""
 		:param assassin_handle: Handle of the assassin that performed the kill
 		:param assassinated_handle: Handle of the participant that was assassinated
-		:param game_id: Unique id of the game the assassination was performed under
 		:return: True if the kill was successfully registered; otherwise False is returned.
 		"""
+
+		if assassin_handle == assassinated_handle:
+			print("Suicide is not a valid escape path...")
+			return False
 
 		assassin = self.get_participant(assassin_handle)
 		if assassin is None:
@@ -72,6 +75,14 @@ class NerfAssassin(Game):
 		assassinated = self.get_participant(assassinated_handle)
 		if assassinated is None:
 			print("ERROR: Assassin " + assassinated_handle + " is not a participant in " + self.name)
+			return False
+
+		if not assassin.is_alive:
+			print("ERROR: assassin " + assassin.handle + " is not alive and thus cannot assassinate " + assassinated.handle)
+			return False
+
+		if not assassinated.is_alive:
+			print("ERROR: participant " + assassinated.handle + " is not alive and thus cannot be assassinated by " + assassin.handle)
 			return False
 
 		assassin.kills.append(assassinated_handle)
@@ -93,6 +104,8 @@ class NerfAssassin(Game):
 
 		else:
 			new_target = self.get_participant(assassinated.target_handle)
+			if new_target is None:
+				print("ERROR: " +assassinated.target_handle+ " is not a participant in " + self.name)
 			assassin.target_handle = new_target.handle
 			new_target.hunter_handle = assassin.handle
 
@@ -101,8 +114,7 @@ class NerfAssassin(Game):
 
 	def add_participant(self, user: User):
 		"""
-		:param user: Name of the user to add
-		:param game_id: Unique id of the game to add the user to
+		:param user: Object of the user to add
 		:return: True if user has been successfully added to the game; otherwise False is returned.
 		"""
 
@@ -136,7 +148,7 @@ class NerfAssassin(Game):
 		import random
 
 		random.shuffle(self.participants)
-		
+
 		num_participants = len(self.participants)
 		for i,participant in enumerate(self.participants):
 

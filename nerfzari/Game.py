@@ -13,7 +13,7 @@ class GameType(Enum):
 	TEAM_ASSASSIN = 2
 	NERF_ZOMBIE = 3
 
-class Game():
+class Game:
 	"""Base Class for all games. """
 
 	type: GameType
@@ -34,7 +34,7 @@ class Game():
 
 	# -------------------------------------------------------------------------
 
-def new_game(game_type: GameType, name: str, start_date: datetime) -> int:
+def new_game(game_type: GameType, name: str, start_date: datetime) -> Game:
 	"""
 	:param game_type: Enum value defining the type of game to create
 	:param name: Name of the Game

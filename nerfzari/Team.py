@@ -1,6 +1,6 @@
-from typing import List, Any
+from typing import List
 
-class Team():
+class Team:
 
 	MAX_TEAM_SIZE = 5
 

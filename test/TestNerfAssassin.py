@@ -6,6 +6,10 @@ from NerfAssassin import NerfAssassin
 import Game
 
 
+from contextlib import redirect_stdout
+from io import StringIO
+
+
 #############################
 ### TEST CASE: Game Setup ###
 #############################
@@ -129,6 +133,25 @@ class Test03GamePlay(unittest.TestCase):
 		self.game = None
 	# --------------------------------------------------------------------------
 
+	@property
+	def num_living_participants(self) -> int:
+		num_alive = 0
+		for participant in self.game.participants[:]:
+			if participant.is_alive:
+				num_alive += 1
+		return num_alive
+	# --------------------------------------------------------------------------
+
+	def get_living_pariticipant(self) -> User:
+		living_participants = [x for x in self.game.participants if x.is_alive]
+		num_living_participants = len(living_participants)
+		if num_living_participants < 1:
+			print("ERROR: No living participants!")
+			return None
+		return random.choice(living_participants)
+
+	# --------------------------------------------------------------------------
+
 	def test01_target_kill(self):
 
 		participant = random.choice(self.game.participants)
@@ -182,14 +205,12 @@ class Test03GamePlay(unittest.TestCase):
 		max_num_attempts = len(self.game.participants) * 10
 		attempts = 0
 		while True:
-			killer = random.choice(self.game.participants)
-			killed = random.choice(self.game.participants)
+			killer = self.get_living_pariticipant()
+			killed = self.get_living_pariticipant()
 			attempts += 1
-			if (killer.target_handle != killed.handle \
-	      and killed.target_handle != killer.handle \
-			and killer.handle != killed.handle \
-			and killed.is_alive \
-			and killer.is_alive) \
+			if (killer.target_handle != killed.handle
+	      and killed.target_handle != killer.handle
+			and killer.handle != killed.handle) \
 			or attempts >= max_num_attempts:
 				break
 		self.assertLess(attempts,max_num_attempts,"Failed to locate two unrelated targets")
@@ -214,59 +235,65 @@ class Test03GamePlay(unittest.TestCase):
 		self.assertEqual(killeds_target.hunter_handle, killeds_hunter.handle)
 	# --------------------------------------------------------------------------
 
+	def test04_kill_already_dead(self):
+
+		max_num_attempts = len(self.game.participants) * 10
+		attempts = 0
+		while True:
+			killer = self.get_living_pariticipant()
+			target = random.choice(self.game.participants)
+			attempts += 1
+			if not target.is_alive or attempts >= max_num_attempts:
+				break
+			elif killer.handle != target.handle:
+				self.assertTrue(self.game.register_kill(killer.handle, target.handle))
+		self.assertLess(attempts, max_num_attempts, "Failed to locate a living killer and a dead target unrelated targets")
+		self.assertTrue(killer.is_alive)
+		self.assertFalse(target.is_alive)
+		self.assertFalse(self.game.register_kill(killer.handle,target.handle))
+	# --------------------------------------------------------------------------
+
 	def test04_full_game_simulation(self):
 
-		num_participants = len(self.game.participants)
-		kill_order = random.sample(range(num_participants),num_participants-1)
+		max_num_kill_attempts = len(self.game.participants) * 10
+		kill_attempts = 0
+		while self.num_living_participants > 1:
+			killer = self.get_living_pariticipant()
+			kill_attempts += 1
+			if killer.is_alive:
+				self.assertTrue(self.game.register_kill(killer.handle, killer.target_handle))
 
-		for killer_index in kill_order[:]:
-			killer = self.game.participants[killer_index]
-			self.game.register_kill(killer.handle,killer.target_handle)
+			if kill_attempts >= max_num_kill_attempts:
+				break
 
-		num_alive = 0
-		for participant in self.game.participants[:]:
-			if participant.is_alive:
-				num_alive += 1
-		self.assertEqual(num_alive,1)
+		self.assertEqual(self.num_living_participants, 1)
 	# --------------------------------------------------------------------------
 
 	def test05_full_game_simulation_chaos(self):
 
-		def get_living_pariticipant():
-			max_num_attempts = len(self.game.participants) * 10
-			attempts = 0
-			while True:
-				living_participant = random.choice(self.game.participants)
-				attempts += 1
-				if living_participant.is_alive or attempts >= max_num_attempts:
-					break;
-			self.assertTrue(living_participant.is_alive)
-			return living_participant
-
 		def kill_target(killer):
-			self.game.register_kill(killer.handle, killer.target_handle)
+			self.assertTrue(self.game.register_kill(killer.handle, killer.target_handle))
 
 		def kill_own_hunter(killer):
-			self.game.register_kill(killer.handle, killer.hunter_handle)
+			self.assertTrue(self.game.register_kill(killer.handle, killer.hunter_handle))
 
 		def kill_non_target(killer):
 			max_num_attempts = len(self.game.participants)*10
 			attempts = 0
 			while True:
-				killed = get_living_pariticipant()
+				killed = self.get_living_pariticipant()
 				attempts += 1
-				if (killer.target_handle != killed.handle \
-				and killed.target_handle != killer.handle \
-				and killer.handle != killed.handle) \
-				or attempts >= max_num_attempts:
+				if killer.handle != killed.handle \
+				and ((killer.target_handle != killed.handle and killed.target_handle != killer.handle)
+				     or attempts >= max_num_attempts):
 					break
 			self.assertTrue(killer.is_alive)
 			self.assertTrue(killed.is_alive)
-			self.game.register_kill(killer.handle,killed.handle)
+			self.assertTrue(self.game.register_kill(killer.handle,killed.handle))
 
 		num_participants = len(self.game.participants)
 		for i in range(num_participants-1):
-			participant = get_living_pariticipant()
+			participant = self.get_living_pariticipant()
 			action = random.randint(1,3)
 			if action == 1:
 				kill_target(participant)
@@ -302,12 +329,18 @@ def print_participants(game: Game):
 			print(participant.handle + " DEAD")
 # --------------------------------------------------------------------------
 
+def run_specific_test(test):
+	suite = unittest.TestSuite()
+	suite.addTest(test)
+	runner = unittest.TextTestRunner()
+	runner.run(suite)
 
 if __name__ == '__main__':
-	unittest.main(verbosity=2)
+	with redirect_stdout(StringIO()) as stdout:
+		unittest.main(verbosity=2)
 
-	#suite = unittest.TestSuite()
-	#suite.addTest(Test03GamePlay("test05_full_game_simulation_chaos"))
-	#runner = unittest.TextTestRunner()
-	#runner.run(suite)
+		#for i in range(0,100):
+		#	run_specific_test(Test03GamePlay("test05_full_game_simulation_chaos"))
+		#	run_specific_test(Test03GamePlay("test04_kill_already_dead"))
+
 
