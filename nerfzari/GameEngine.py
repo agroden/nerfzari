@@ -3,6 +3,14 @@ from enum import Enum
 import FakeDatabase as database
 from User import User
 
+####################################
+### User Communication Exception ###
+####################################
+
+class UserCommunicationException(Exception):
+	def __init__(self, message):
+		super().__init__(message)
+
 
 #################
 ### Game Type ###
@@ -16,9 +24,9 @@ class GameType(Enum):
 	TEAM_ASSASSIN = 2
 	NERF_ZOMBIE = 3
 
-#################
-### Game Type ###
-#################
+############
+### Game ###
+############
 
 class Game:
 	"""Base Class for all games. """
@@ -49,7 +57,7 @@ def new_user(first_name: str, last_name:str):
 	"""
 	:param first_name: The first name of the new user
 	:param last_name: The last name of the new user
-	:return: The unique user id of the new user; if an error occurred -1 is returned
+	:return: The unique user id of the new user; if an error occurred RuntimeError is raised
 	"""
 	user = User(first_name,last_name)
 	user_id = database.add_user(user)
@@ -62,7 +70,7 @@ def new_game(game_type: GameType, name: str, start_date: datetime) -> Game:
 	:param name: Name of the Game
 	:param start_date: Date and Time for the game to begin
 	:param game_type: Identifier for the type of game to be created
-	:returns: Game Id if game has been created successfully; otherwise 0 is returned.
+	:returns: Game Id if game has been created successfully; otherwise RuntimeError is raised
 	"""
 
 	if game_type == GameType.NERF_ASSASSIN:
@@ -73,8 +81,8 @@ def new_game(game_type: GameType, name: str, start_date: datetime) -> Game:
 	elif game_type == GameType.NERF_ZOMBIE:
 		raise NotImplementedError()
 	else:
-		print("ERROR: Unknown GameType " + str(game_type))
-		return None
+		raise RuntimeError("ERROR: Unknown GameType " + str(game_type))
+
 
 	game.id = database.add_game(game)  # TODO: This needs to be replaced with a real database call
 
@@ -84,7 +92,7 @@ def new_game(game_type: GameType, name: str, start_date: datetime) -> Game:
 def get_game(game_id: int):
 	"""
 	:param game_id: Unique id of the game to retrieve the object of
-	:returns: The game object matching the id; otherwise None is returned
+	:returns: The game object matching the id; otherwise RuntimeError is raised.
 	"""
 
 	return database.get_game(game_id)  # TODO: This needs to be replaced with a real database call
@@ -108,7 +116,7 @@ def register_kill(game_id: int, assassin_handle: str, assassinated_handle: str):
 	:param assassin_handle: Handle of the assassin that performed the kill
 	:param assassinated_handle: Handle of the participant that was assassinated
 	:param game_id: Unique id of the game the assassination was performed under
-	:return: True if the kill was successfully registered; otherwise False is returned.
+	:return: True if the kill was successfully registered; otherwise RuntimeError is raised.
 	"""
 	game = database.get_game(game_id)      # TODO: This needs to be replaced with a real database call
 	return game.register_kill(assassin_handle,assassinated_handle)
@@ -119,7 +127,7 @@ def add_participant(game_id: int, user_id: int, handle: str):
 	:param game_id: Unique id of the game to add the user to
 	:param user_id: Unique id of the user to add to the specified game
 	:param handle: Unique printable name or identifier for the user during the game
-	:returns: True if user has been successfully added to the game; otherwise False is returned.
+	:returns: True if user has been successfully added to the game; otherwise RuntimeError is raised.
 	"""
 
 	game = database.get_game(game_id)      # TODO: This needs to be replaced with a real database call
@@ -130,7 +138,7 @@ def remove_participant(game_id: int, user: str):
 	"""
 	:param user: Name of the user to remove
 	:param game_id: Unique id of the game to remove the user from
-	:returns: True if user has been successfully removed from the game; otherwise False is returned.
+	:returns: True if user has been successfully removed from the game; otherwise RuntimeError is raised.
 	"""
 
 	game = database.get_game(game_id)      # TODO: This needs to be replaced with a real database call
@@ -141,7 +149,7 @@ def status(game_id: int, user: str):
 	"""
 	:param user: Name of the user to print the status of
 	:param game_id: Unique id of the game the user is a participant in
-	:returns: True if status has been successfully retrieved and printed; otherwise False is returned.
+	:returns: True if status has been successfully retrieved and printed; otherwise RuntimeError is raised
 	"""
 
 	raise NotImplementedError()
@@ -149,7 +157,7 @@ def status(game_id: int, user: str):
 
 def history():
 	"""
-	:returns: True if history has been successfully printed; otherwise False is returned.
+	:returns: True if history has been successfully printed; otherwise RuntimeError is raised
 	"""
 
 	raise NotImplementedError()

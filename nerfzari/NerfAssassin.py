@@ -1,6 +1,7 @@
 from datetime import datetime
 from typing import List
 from GameEngine import Game,GameType
+from GameEngine import UserCommunicationException
 import FakeDatabase as database
 
 
@@ -54,25 +55,27 @@ class NerfAssassin(Game):
 		self.start_date = start_date
 		self.id = 0
 		self.participants = []
-	# -------------------------------------------------------------------------
+	# --------------------------------------------------------------------------
 
 	def __str__(self):
 		return str(self.id) + " - " + self.name + " - " + self.TYPE_NAME
-	# -------------------------------------------------------------------------
+	# --------------------------------------------------------------------------
+
+	@property
+	def num_participants(self):
+		return len(self.participants)
+	# --------------------------------------------------------------------------
 
 	def status(self, handle: str):
 		"""
 		:param handle: handle of the participant to print the status of (is_alive, current target, # kills... etc)
-		:return: True if status has been successfully retrieved and printed; otherwise False is returned.
+		:return: True if status has been successfully retrieved and printed; otherwise RuntimeError is raised
 		"""
 		participant = self.get_participant(handle)
 		if participant is None:
-			print("ERROR: Assassin " + handle + " is not a participant in " + self.name)
-			return False
+			raise RuntimeError("ERROR: Assassin " + handle + " is not a participant in " + self.name)
 		print(str(participant))
-
-		return True
-	# -------------------------------------------------------------------------
+	# --------------------------------------------------------------------------
 
 	def register_kill(self, assassin_handle: str, assassinated_handle: str):
 		"""
@@ -82,25 +85,16 @@ class NerfAssassin(Game):
 		"""
 
 		if assassin_handle == assassinated_handle:
-			print("Suicide is not a valid escape path...")
-			return False
+			raise UserCommunicationException("Suicide is not a valid escape path...")
 
 		assassin = self.get_participant(assassin_handle)
-		if assassin is None:
-			print("ERROR: Assassin " + assassin_handle + " is not a participant in " + self.name)
-			return False
 		assassinated = self.get_participant(assassinated_handle)
-		if assassinated is None:
-			print("ERROR: Assassin " + assassinated_handle + " is not a participant in " + self.name)
-			return False
 
 		if not assassin.is_alive:
-			print("ERROR: assassin " + assassin.handle + " is not alive and thus cannot assassinate " + assassinated.handle)
-			return False
+			raise RuntimeError("Assassin " + assassin.handle + " is not alive and thus cannot assassinate " + assassinated.handle)
 
 		if not assassinated.is_alive:
-			print("ERROR: participant " + assassinated.handle + " is not alive and thus cannot be assassinated by " + assassin.handle)
-			return False
+			raise RuntimeError("Participant " + assassinated.handle + " is not alive and thus cannot be assassinated by " + assassin.handle)
 
 		database.register_kill(assassin.user_id)
 		assassinated.is_alive = False
@@ -109,31 +103,21 @@ class NerfAssassin(Game):
 
 		if assassin.handle != assassinated.hunter_handle:
 			hunter_of_assassinated = self.get_participant(assassinated.hunter_handle)
-			if hunter_of_assassinated is None:
-				print("ERROR: " + assassinated_handle + "'s hunter " + assassinated.hunter_handle + " is not a participant in " + self.name)
-				return False
 			target_of_assassinated = self.get_participant(assassinated.target_handle)
-			if target_of_assassinated is None:
-				print("ERROR: " + assassinated_handle + "'s target " + assassinated.target_handle + " is not a participant in " + self.name)
-				return False
+
 			hunter_of_assassinated.target_handle = assassinated.target_handle
 			target_of_assassinated.hunter_handle = hunter_of_assassinated.handle
 
 		else:
 			new_target = self.get_participant(assassinated.target_handle)
-			if new_target is None:
-				print("ERROR: " +assassinated.target_handle+ " is not a participant in " + self.name)
 			assassin.target_handle = new_target.handle
 			new_target.hunter_handle = assassin.handle
+	# --------------------------------------------------------------------------
 
-		return True
-	# -------------------------------------------------------------------------
-
-	def add_participant(self, user_id: int, handle: str) -> bool:
+	def add_participant(self, user_id: int, handle: str):
 		"""
 		:param user_id: Unique id of the user to add
 		:param handle: Unique printable name or identifier for the user during the game
-		:return: True if user has been successfully added to the game; otherwise False is returned.
 		"""
 
 		participant_exists = False
@@ -143,27 +127,24 @@ class NerfAssassin(Game):
 				break
 
 		if participant_exists:
-			print("ERROR: " + handle + " is already a participant in " + self.name)
-			return False
+			raise RuntimeError(handle + " is already a participant in " + self.name)
 
 		self.participants.append(Participant(user_id,handle))
 
-		return True
-	# -------------------------------------------------------------------------
+	# --------------------------------------------------------------------------
 
 	def get_participant(self, handle) -> Participant:
 		"""
 		:param handle: The handle of the participant to retrieve
-		:return: object of the participant matching the given handle; otherwise None is returned
+		:return: object of the participant matching the given handle; otherwise RunetimeError is raised
 		"""
 
 		for participant in self.participants[:]:
 			if participant.handle == handle:
 				return participant
 
-		print("ERROR get_participant: participant with handle " + handle + " not found.")
-		return None
-	# -------------------------------------------------------------------------
+		raise RuntimeError(handle + " is not a participant in " + self.name)
+	# --------------------------------------------------------------------------
 
 	def distribute_targets(self):
 		"""
@@ -187,4 +168,4 @@ class NerfAssassin(Game):
 				participant.hunter_handle = self.participants[i-1].handle
 			else:
 				participant.hunter_handle = self.participants[-1].handle
-	# -------------------------------------------------------------------------
+	# --------------------------------------------------------------------------

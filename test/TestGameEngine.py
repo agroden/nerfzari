@@ -1,6 +1,6 @@
 import unittest
 from datetime import datetime
-from GameEngine import Game,GameType
+from GameEngine import GameType
 import GameEngine
 
 #############################

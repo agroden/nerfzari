@@ -1,11 +1,9 @@
 import unittest
 import random
 from datetime import datetime
-from User import User
 from NerfAssassin import NerfAssassin,Participant
 import GameEngine
 import FakeDatabase as database
-
 
 from contextlib import redirect_stdout
 from io import StringIO
@@ -38,13 +36,13 @@ class Test01GameSetup(unittest.TestCase):
 		self.assertGreaterEqual(assassin3_id,0)
 
 
-		self.assertEqual(0, len(self.game.participants))
-		self.assertTrue(self.game.add_participant(assassin1_id, "Assassin1"))
-		self.assertEqual(1, len(self.game.participants))
-		self.assertTrue(self.game.add_participant(assassin2_id, "Assassin2"))
-		self.assertEqual(2, len(self.game.participants))
-		self.assertTrue(self.game.add_participant(assassin3_id, "Assassin3"))
-		self.assertEqual(3, len(self.game.participants))
+		self.assertEqual(self.game.num_participants, 0)
+		self.game.add_participant(assassin1_id, "Assassin1")
+		self.assertEqual(self.game.num_participants, 1)
+		self.game.add_participant(assassin2_id, "Assassin2")
+		self.assertEqual(self.game.num_participants, 2)
+		self.game.add_participant(assassin3_id, "Assassin3")
+		self.assertEqual(self.game.num_participants, 3)
 	# --------------------------------------------------------------------------
 
 	def test02_adding_duplicate_participant(self):
@@ -52,9 +50,9 @@ class Test01GameSetup(unittest.TestCase):
 		assassin2_id = GameEngine.new_user("Ass", "Assin2")
 		self.assertGreaterEqual(assassin2_id, 0)
 
-		self.assertTrue(self.game.add_participant(assassin2_id, "Assassin2"))
-		self.assertFalse(self.game.add_participant(assassin2_id, "Assassin2"))
-		self.assertEqual(1, len(self.game.participants))
+		self.game.add_participant(assassin2_id, "Assassin2")
+		self.assertRaises(RuntimeError,self.game.add_participant,assassin2_id, "Assassin2")
+		self.assertEqual(self.game.num_participants, 1)
 	# --------------------------------------------------------------------------
 
 ######################################
@@ -77,7 +75,7 @@ class Test02TargetDistribution(unittest.TestCase):
 		for i in range(random.randint(self.MIN_NUM_PARTICIPANTS,self.MAX_NUM_PARTICIPANTS)):
 			user_id = GameEngine.new_user("Ass", "Assin" + str(i))
 			self.assertGreaterEqual(user_id,0)
-			self.assertTrue(self.game.add_participant(user_id, "Assassin" + str(i)))
+			self.game.add_participant(user_id, "Assassin" + str(i))
 
 		self.game.distribute_targets()
 	# --------------------------------------------------------------------------
@@ -144,7 +142,7 @@ class Test03GamePlay(unittest.TestCase):
 		for i in range(random.randint(self.MIN_NUM_PARTICIPANTS,self.MAX_NUM_PARTICIPANTS)):
 			user_id = GameEngine.new_user("Ass", "Assin" + str(i))
 			self.assertGreaterEqual(user_id,0)
-			self.assertTrue(self.game.add_participant(user_id, "Assassin" + str(i)))
+			self.game.add_participant(user_id, "Assassin" + str(i))
 
 		self.game.distribute_targets()
 	# --------------------------------------------------------------------------
@@ -239,7 +237,7 @@ class Test03GamePlay(unittest.TestCase):
 
 	def test03_non_target_kill(self):
 
-		max_num_attempts = len(self.game.participants) * 10
+		max_num_attempts = self.game.num_participants * 10
 		attempts = 0
 		while True:
 			killer = self.get_living_pariticipant()
@@ -276,7 +274,7 @@ class Test03GamePlay(unittest.TestCase):
 
 	def test04_kill_already_dead(self):
 
-		max_num_attempts = len(self.game.participants) * 10
+		max_num_attempts = self.game.num_participants * 10
 		attempts = 0
 		while True:
 			killer = self.get_living_pariticipant()
@@ -285,16 +283,16 @@ class Test03GamePlay(unittest.TestCase):
 			if not target.is_alive or attempts >= max_num_attempts:
 				break
 			elif killer.handle != target.handle:
-				self.assertTrue(self.game.register_kill(killer.handle, target.handle))
+				self.game.register_kill(killer.handle, target.handle)
 		self.assertLess(attempts, max_num_attempts, "Failed to locate a living killer and a dead target")
 		self.assertTrue(killer.is_alive)
 		self.assertFalse(target.is_alive)
-		self.assertFalse(self.game.register_kill(killer.handle,target.handle))
+		self.assertRaises(RuntimeError,self.game.register_kill,killer.handle,target.handle)
 	# --------------------------------------------------------------------------
 
-	def test05_kill_already_dead(self):
+	def test05_dead_killer(self):
 
-		max_num_attempts = len(self.game.participants) * 10
+		max_num_attempts = self.game.num_participants * 10
 		attempts = 0
 		while True:
 			killer = random.choice(self.game.participants)
@@ -303,22 +301,22 @@ class Test03GamePlay(unittest.TestCase):
 			if not killer.is_alive or attempts >= max_num_attempts:
 				break
 			elif killer.handle != target.handle:
-				self.assertTrue(self.game.register_kill(killer.handle, target.handle))
+				self.game.register_kill(killer.handle, target.handle)
 		self.assertLess(attempts, max_num_attempts, "Failed to locate a living target and a dead killer")
 		self.assertFalse(killer.is_alive)
 		self.assertTrue(target.is_alive)
-		self.assertFalse(self.game.register_kill(killer.handle,target.handle))
+		self.assertRaises(RuntimeError, self.game.register_kill, killer.handle, target.handle)
 	# --------------------------------------------------------------------------
 
 	def test06_full_game_simulation(self):
 
-		max_num_kill_attempts = len(self.game.participants) * 10
+		max_num_kill_attempts = self.game.num_participants * 10
 		kill_attempts = 0
 		while self.num_living_participants > 1:
 			killer = self.get_living_pariticipant()
 			kill_attempts += 1
 			if killer.is_alive:
-				self.assertTrue(self.game.register_kill(killer.handle, killer.target_handle))
+				self.game.register_kill(killer.handle, killer.target_handle)
 
 			if kill_attempts >= max_num_kill_attempts:
 				break
@@ -329,13 +327,13 @@ class Test03GamePlay(unittest.TestCase):
 	def test07_full_game_simulation_chaos(self):
 
 		def kill_target(killer):
-			self.assertTrue(self.game.register_kill(killer.handle, killer.target_handle))
+			self.game.register_kill(killer.handle, killer.target_handle)
 
 		def kill_own_hunter(killer):
-			self.assertTrue(self.game.register_kill(killer.handle, killer.hunter_handle))
+			self.game.register_kill(killer.handle, killer.hunter_handle)
 
 		def kill_non_target(killer):
-			max_num_attempts = len(self.game.participants)*10
+			max_num_attempts = self.game.num_participants*10
 			attempts = 0
 			while True:
 				killed = self.get_living_pariticipant()
@@ -346,9 +344,9 @@ class Test03GamePlay(unittest.TestCase):
 					break
 			self.assertTrue(killer.is_alive)
 			self.assertTrue(killed.is_alive)
-			self.assertTrue(self.game.register_kill(killer.handle,killed.handle))
+			self.game.register_kill(killer.handle,killed.handle)
 
-		num_participants = len(self.game.participants)
+		num_participants = self.game.num_participants
 		for i in range(num_participants-1):
 			participant = self.get_living_pariticipant()
 			action = random.randint(1,3)
@@ -394,12 +392,12 @@ def run_specific_test(test):
 
 if __name__ == '__main__':
 
-	#unittest.main(verbosity=2)
+	unittest.main(verbosity=2)
 
-	#run_specific_test(Test03GamePlay("test03_non_target_kill"))
+	#run_specific_test(Test01GameSetup("test02_adding_duplicate_participant"))
 
-	with redirect_stdout(StringIO()) as stdout:
-		unittest.main(verbosity=2)
+	#with redirect_stdout(StringIO()) as stdout:
+	#	unittest.main(verbosity=2)
 
 		#for i in range(0,100):
 		#	run_specific_test(Test03GamePlay("test05_full_game_simulation_chaos"))
