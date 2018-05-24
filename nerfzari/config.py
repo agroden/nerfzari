@@ -1,9 +1,17 @@
 """
 """
 
-
+import abc
 import json
 import jsonschema
+
+
+class Configurable(metaclass=abc.ABCMeta):
+	"""An abstract class that lets people know your class can read a config"""
+	@abc.abstractclassmethod
+	def from_cfg(cls):
+		pass
+
 
 class ConfigStore(object):
 	"""One stop shop for managing the various config files modules will need."""
