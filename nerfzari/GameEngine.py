@@ -47,8 +47,14 @@ class Game:
 
 	def __str__(self):
 		return self.name + " - " + str(self.type) + " start date: " + str(self.start_date)
-
 	# -------------------------------------------------------------------------
+
+	def change_start_date(self, new_start_date: datetime):
+		if self.is_started:
+			raise UserCommunicationException("Cannot change the start date of a game already in progress.")
+
+		self.start_date = new_start_date
+	# --------------------------------------------------------------------------
 
 ###################
 ### Game Engine ###

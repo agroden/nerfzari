@@ -1,6 +1,6 @@
 import unittest
 import random
-from datetime import datetime
+from datetime import datetime,timedelta
 from NerfAssassin import NerfAssassin,Participant
 from GameEngine import UserCommunicationException
 import GameEngine
@@ -15,7 +15,7 @@ class Test01GameSetup(unittest.TestCase):
 	game: NerfAssassin
 
 	def setUp(self):
-		self.game = NerfAssassin("Test Game", datetime.now())
+		self.game = NerfAssassin("Test Game", datetime.now() + timedelta(days=21))
 		self.assertIsNotNone(self.game)
 		database.start_unittest_mode()
 	# --------------------------------------------------------------------------
@@ -31,7 +31,6 @@ class Test01GameSetup(unittest.TestCase):
 		self.assertGreaterEqual(assassin2_id,0)
 		assassin3_id = GameEngine.new_user("Ass", "Assin3")
 		self.assertGreaterEqual(assassin3_id,0)
-
 
 		self.assertEqual(self.game.num_participants, 0)
 		self.game.add_participant(assassin1_id, "Assassin1")
@@ -51,6 +50,43 @@ class Test01GameSetup(unittest.TestCase):
 		self.assertRaises(UserCommunicationException,self.game.add_participant,assassin2_id, "Assassin2")
 		self.assertEqual(self.game.num_participants, 1)
 	# --------------------------------------------------------------------------
+
+	def test03_register_kill_before_start(self):
+
+		assassin1_id = GameEngine.new_user("Ass", "Assin1")
+		self.assertGreaterEqual(assassin1_id,0)
+		assassin2_id = GameEngine.new_user("Ass", "Assin2")
+		self.assertGreaterEqual(assassin2_id,0)
+		assassin3_id = GameEngine.new_user("Ass", "Assin3")
+		self.assertGreaterEqual(assassin3_id,0)
+
+		self.assertEqual(self.game.num_participants, 0)
+		self.game.add_participant(assassin1_id, "Assassin1")
+		self.assertEqual(self.game.num_participants, 1)
+		self.game.add_participant(assassin2_id, "Assassin2")
+		self.assertEqual(self.game.num_participants, 2)
+		self.game.add_participant(assassin3_id, "Assassin3")
+		self.assertEqual(self.game.num_participants, 3)
+
+		self.assertRaises(UserCommunicationException,self.game.register_kill,"Assassin1", "Assassin2")
+	# --------------------------------------------------------------------------
+
+	def test04_start_before_start_date(self):
+
+		self.assertRaises(UserCommunicationException,self.game.start_game)
+	# --------------------------------------------------------------------------
+
+	def test04_adding_pariticpant_after_start(self):
+
+		self.game.change_start_date(datetime.now())
+		self.game.start_game()
+
+		assassin6_id = GameEngine.new_user("Ass", "Assin6")
+		self.assertGreaterEqual(assassin6_id, 0)
+
+		self.assertRaises(UserCommunicationException,self.game.add_participant,assassin6_id, "Assassin6")
+	# --------------------------------------------------------------------------
+
 
 ######################################
 ### TEST CASE: Target Distribution ###
@@ -81,20 +117,24 @@ class Test02TargetDistribution(unittest.TestCase):
 		self.game = None
 	# --------------------------------------------------------------------------
 
-	def test01_no_empty_assignments(self):
+	def test01_distribute_after_start(self):
+		self.assertRaises(UserCommunicationException,self.game.distribute_targets)
+	# --------------------------------------------------------------------------
+
+	def test02_no_empty_assignments(self):
 
 		for participant in self.game.participants[:]:
 			self.assertIsNotNone(participant.target_handle)
 			self.assertNotEqual(participant.target_handle, "")
 	# --------------------------------------------------------------------------
 
-	def test02_no_self_assignments(self):
+	def test03_no_self_assignments(self):
 
 		for participant in self.game.participants[:]:
 			self.assertNotEqual(participant.handle,participant.target_handle)
 	# --------------------------------------------------------------------------
 
-	def test03_no_duplicates(self):
+	def test04_no_duplicates(self):
 
 		for participant in self.game.participants[:]:
 			num_hunters = 0
@@ -104,14 +144,14 @@ class Test02TargetDistribution(unittest.TestCase):
 			self.assertEqual(num_hunters,1)
 	# --------------------------------------------------------------------------
 
-	def test04_no_non_participating(self):
+	def test05_no_non_participating(self):
 
 		for participant in self.game.participants[:]:
 			target = self.game.get_participant(participant.target_handle)
 			self.assertIsNotNone(target)
 	# --------------------------------------------------------------------------
 
-	def test05_no_closed_loops(self):
+	def test06_no_closed_loops(self):
 
 		for participant in self.game.participants[:]:
 			target = self.game.get_participant(participant.target_handle)
