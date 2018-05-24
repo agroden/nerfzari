@@ -5,7 +5,7 @@ import socket
 import logging
 import sys
 import paramiko
-from nerfzari import ConfigStore, SSHCmd, SSHServer, Authenticator
+from nerfzari import ConfigStore, Authenticator, SSHServer, SSHCmd
 
 
 logging.basicConfig(filename='nerfzari.log', level=logging.DEBUG)
@@ -35,7 +35,6 @@ NERFZARI_CFG_SCHEMA = {
 		}
 	}
 }
-
 ConfigStore.register(
 	NERFZARI_CFG_PATH,
 	NERFZARI_CFG_SCHEMA
@@ -85,7 +84,16 @@ class NerfzariCmd(SSHCmd):
 if __name__ == '__main__':
 	ConfigStore.load_all()
 	cfg = ConfigStore.get(NERFZARI_CFG_PATH)
-	host_key = paramiko.RSAKey(filename=cfg['rsa_key'])
+	addr = ('', cfg['listen_port'])
+	key_path = cfg['rsa_key']
+	auth_cls = Authenticator.get(cfg['auth_cls'])
+	try:
+		with SSHServer(addr, key_path, NerfzariCmd, auth_cls) as server:
+			server.serve_forever()
+	except KeyboardInterrupt:
+		server.shutdown()
+
+	'''
 	# TODO: make this safer for a daemon
 	try:
 		sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
@@ -95,6 +103,7 @@ if __name__ == '__main__':
 		log.error('Bind failed: {}'.format(str(err)))
 		sys.exit(1)
 	print('0')
+
 	try:
 		sock.listen()
 		conn, addr = sock.accept()
@@ -102,6 +111,7 @@ if __name__ == '__main__':
 		log.error('Listen / accpet failed: {}'.format(str(err)))
 		sys.exit(1)
 	print('1')
+
 	try:
 		trans = paramiko.Transport(conn)
 		trans.set_gss_host(socket.getfqdn(''))
@@ -128,7 +138,7 @@ if __name__ == '__main__':
 
 	except Exception as ex:
 		log.error('Unexpected exception occurred: {}'.format(str(ex)))
-		raise ex
 		sys.exit(1)
 	finally:
 		trans.close()
+'''

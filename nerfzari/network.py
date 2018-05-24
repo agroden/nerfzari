@@ -1,30 +1,50 @@
 """
 """
 
-
+import abc
 import cmd
+import logging
+import multiprocessing
 import paramiko
+import selectors
+import socket
 import threading
-from abc import ABC, abstractmethod
+import nerfzari
 
 
-class Authenticator(ABC):
+logging.basicConfig(filename='nerfzari.log', level=logging.DEBUG)
+log = logging.getLogger(__name__)
+
+
+if hasattr(selectors, 'PollSelector'):
+	ServerSelector = selectors.PollSelector
+else:
+	ServerSelector = selectors.SelectSelector
+
+
+class Authenticator(abc.ABC):
 	"""Base class for all authenticators."""
 	_authenticators = {}
-	@abstractmethod
+	@abc.abstractmethod
 	def authenticate(self, username, password):
 		"""
 		:returns: True for authentication success or False for authentication failure.
 		"""
-		raise NotImplementedError()
+		pass
 
 	@staticmethod
-	def register(cls):
-		Authenticator._authenticators[cls.__name__] = cls
+	def register(cls, name=None):
+		if name is None:
+			name = cls.__name__
+		Authenticator._authenticators[name] = cls
 
 	@staticmethod
 	def make(name, *args, **kwargs):
 		return Authenticator._authenticators[name](*args, **kwargs)
+
+	@staticmethod
+	def get(name):
+		return Authenticator._authenticators[name]
 
 
 class AcceptAll(Authenticator):
@@ -37,7 +57,89 @@ class AcceptAll(Authenticator):
 Authenticator.register(AcceptAll)
 
 
-class SSHServer(paramiko.ServerInterface):
+class SSHServer(object):
+	"""A SSH server"""
+	def __init__(self, addr, key_path, cmd_cls, auth_cls):
+		self._ssock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+		self._ssock.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
+		self._ssock.bind(addr)
+		self._procs = []
+		self._running = True
+		self._is_shutdown = threading.Event()
+		self._auth_cls = auth_cls
+		self._key_path = key_path
+		self._cmd_cls = cmd_cls
+
+	@staticmethod
+	def _ssh_process(addr, conn, key_path, cmd_cls, auth_cls):
+		def cleanup():
+			tport.close()
+			conn.close()
+		key = paramiko.RSAKey(filename=key_path)
+		tport = paramiko.Transport(conn)
+		tport.set_gss_host(socket.getfqdn(''))
+		tport.add_server_key(key)
+		if issubclass(auth_cls, nerfzari.Configurable):
+			auth = auth_cls.from_cfg()
+		else:
+			auth = auth_cls()
+		iface = SSHInterface(auth)
+		try:
+			tport.start_server(server=iface)
+		except paramiko.SSHException:
+			log.warning('SSH negotiation failed for {}:{}'.format(addr[0], addr[1]))
+			cleanup()
+			return
+		chan = tport.accept(20)
+		if chan is None:
+			log.warning('Client at {}:{} did not open channel'.format(addr[0], addr[1]))
+			cleanup()
+			return
+		iface.event.wait(10)
+		if not iface.event.is_set():
+			log.warning('Client at {}:{} did not ask for shell'.format(addr[0], addr[1]))
+			cleanup()
+			return
+		term = cmd_cls(chan)
+		term.cmdloop('nerfing is true; everything is permitted')
+		chan.close()
+		cleanup()
+
+	def serve_forever(self, poll_interval=0.5):
+		self._ssock.listen(5)
+		try:
+			with ServerSelector() as selector:
+				selector.register(self._ssock, selectors.EVENT_READ)
+				while self._running:
+					ready = selector.select(poll_interval)
+					if len(ready) > 0: # we are only selecting on the server socket
+						conn, addr = self._ssock.accept()
+						proc = multiprocessing.Process(
+							target=SSHServer._ssh_process,
+							args=(addr, conn, self._key_path, self._cmd_cls, self._auth_cls)
+						)
+						proc.daemon = True
+						proc.start()
+		finally:
+			for proc in multiprocessing.active_children():
+				proc.terminate()
+				proc.join()
+			self._ssock.close()
+			self._is_shutdown.set()
+
+	def shutdown(self):
+		self._running = False
+		self._is_shutdown.wait()
+
+	def __enter__(self):
+		return self
+
+	def __exit__(self, type, val, traceback):
+		self._running = False
+		self._is_shutdown.wait()
+
+
+class SSHInterface(paramiko.ServerInterface):
 	"""The Nerfzari SSH server"""
 	def __init__(self, authenticator=AcceptAll()):
 		self.event = threading.Event()
