@@ -6,9 +6,9 @@ name = "pypi"
 [packages]
 "ldap3" = "*"
 paramiko = "*"
-wcwidth = "*"
 PyYAML = "*"
 jsonschema = "*"
+records = "*"
 
 [dev-packages]
 pylint = "*"
