@@ -3,7 +3,7 @@
 
 import ldap3
 from nerfzari import Authenticator
-from nerfzari import ConfigStore
+from nerfzari import ConfigStore, Configurable
 
 LDAP_CFG_PATH = 'ldap.json'
 LDAP_CFG_SCHEMA = {
@@ -26,6 +26,13 @@ LDAP_CFG_SCHEMA = {
 			],
 			'default': 'simple'
 		},
+		'sasl_mechanism': {
+			'enum': [
+				'external',
+				'digest-md5',
+				'gssapi'
+			]
+		}
 	}
 }
 ConfigStore.register(
@@ -33,7 +40,7 @@ ConfigStore.register(
 	LDAP_CFG_SCHEMA
 )
 
-class LDAPAuthenticator(Authenticator):
+class LDAPAuthenticator(Authenticator, Configurable):
 	"""An authenticator that uses LDAP to confirm credentials."""
 	auth_methods = {
 		'anonymous': ldap3.ANONYMOUS,
@@ -41,15 +48,29 @@ class LDAPAuthenticator(Authenticator):
 		'sasl': ldap3.SASL,
 		'ntlm': ldap3.NTLM
 	}
-	def __init__(self, host, port=389, method='simple'): # default port of LDAP is 389
+	sasl_mech = {
+		'external': ldap3.EXTERNAL,
+		'digest-md5': ldap3.DIGEST_MD5,
+		'gssapi': ldap3.GSSAPI
+	}
+	def __init__(self, host, port=389, method='simple', sasl_mech=None):
 		self._ldap_server = ldap3.Server(host, port, get_info=ldap3.ALL)
 		self._err_msg = None
 		self._auth_method = self.auth_methods[method]
+		self._sasl_mech = sasl_mech
 
-	@staticmethod
-	def from_cfg():
+	@classmethod
+	def from_cfg(cls):
 		cfg = ConfigStore.get(LDAP_CFG_PATH)
-		return LDAPAuthenticator(cfg['host'], cfg['port'], cfg['auth_method'])
+		mech = None
+		if 'sasl_mechanism' in cfg:
+			mech = cfg['sasl_mechanism']
+		return LDAPAuthenticator(
+			cfg['host'],
+			cfg['port'],
+			cfg['auth_method'],
+			mech
+		)
 
 	@property
 	def err_msg(self):
@@ -57,15 +78,27 @@ class LDAPAuthenticator(Authenticator):
 
 	def authenticate(self, username, password):
 		ret = False
-		ldap_conn = ldap3.Connection(
-			self._ldap_server,
-			authentication=self._auth_method,
-			user=username, password=password,
-			check_names=True,
-			lazy=False,
-			client_strategy=ldap3.SYNC,
-			raise_exceptions=False
-		)
+		if self._auth_method == ldap3.SASL and self._sasl_mech is not None:
+			ldap_conn = ldap3.Connection(
+				self._ldap_server,
+				authentication=self._auth_method,
+				user=username, password=password,
+				check_names=True,
+				lazy=False,
+				client_strategy=ldap3.SYNC,
+				raise_exceptions=False,
+				sasl_mechanism=self._sasl_mech
+			)
+		else:
+			ldap_conn = ldap3.Connection(
+				self._ldap_server,
+				authentication=self._auth_method,
+				user=username, password=password,
+				check_names=True,
+				lazy=False,
+				client_strategy=ldap3.SYNC,
+				raise_exceptions=False
+			)
 		ldap_conn.open()
 		ldap_conn.bind()
 		if ldap_conn.result['result'] == 0: # 0: success, 49: invalidCredentials
@@ -75,3 +108,7 @@ class LDAPAuthenticator(Authenticator):
 			self.err_msg = ldap_conn.result['description']
 		ldap_conn.unbind()
 		return ret
+
+# register this as an authenticator
+Authenticator.register(LDAPAuthenticator)
+
