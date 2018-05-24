@@ -343,26 +343,24 @@ class Test03GamePlay(unittest.TestCase):
 			self.assertTrue(killed.is_alive)
 			self.game.register_kill(killer.handle,killed.handle)
 
-		num_participants = self.game.num_participants
-		for i in range(num_participants-1):
+		max_num_actions = self.game.num_participants * 10
+		num_actions = 0
+		while self.game.num_living_participants > 1 and num_actions < max_num_actions:
 			participant = self.get_living_pariticipant()
-			action = random.randint(1,3)
+			action = random.randint(1,4)
 			if action == 1:
 				kill_target(participant)
 			elif action == 2:
 				kill_own_hunter(participant)
 			elif action == 3:
 				kill_non_target(participant)
+			elif action == 4:
+				self.game.remove_participant(random.choice(self.game.participants).handle)
 			else:
 				self.assertLessEqual(action,3,"Unknown action number " + str(action))
+			num_actions += 1
 
-		num_alive = 0
-		for participant in self.game.participants[:]:
-			if participant.is_alive:
-				num_alive += 1
-
-		self.assertEqual(num_alive,1)
-
+		self.assertLess(num_actions,max_num_actions)
 	# --------------------------------------------------------------------------
 
 
@@ -391,11 +389,11 @@ if __name__ == '__main__':
 
 	unittest.main(verbosity=2)
 
-	#run_specific_test(Test01GameSetup("test02_adding_duplicate_participant"))
+	#run_specific_test(Test03GamePlay("test07_full_game_simulation_chaos"))
 
 
 	#for i in range(0,100):
-	#	run_specific_test(Test03GamePlay("test05_full_game_simulation_chaos"))
+	#	run_specific_test(Test03GamePlay("test07_full_game_simulation_chaos"))
 	#	run_specific_test(Test03GamePlay("test04_kill_already_dead"))
 
 

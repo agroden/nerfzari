@@ -182,12 +182,11 @@ class NerfAssassin(Game):
 		participant = self.get_participant(handle)
 
 		if self.is_started:
-
-			hunter_of_participant = self.get_participant(participant.hunter_handle)
-			target_of_participant = self.get_participant(participant.target_handle)
-
-			hunter_of_participant.target_handle = participant.target_handle
-			target_of_participant.hunter_handle = hunter_of_participant.handle
+			if participant.is_alive:
+				hunter_of_participant = self.get_participant(participant.hunter_handle)
+				target_of_participant = self.get_participant(participant.target_handle)
+				hunter_of_participant.target_handle = participant.target_handle
+				target_of_participant.hunter_handle = hunter_of_participant.handle
 
 		self.participants.remove(participant)
 	# -------------------------------------------------------------------------
