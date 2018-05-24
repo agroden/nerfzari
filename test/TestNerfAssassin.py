@@ -2,12 +2,9 @@ import unittest
 import random
 from datetime import datetime
 from NerfAssassin import NerfAssassin,Participant
+from GameEngine import UserCommunicationException
 import GameEngine
 import FakeDatabase as database
-
-from contextlib import redirect_stdout
-from io import StringIO
-
 
 #############################
 ### TEST CASE: Game Setup ###
@@ -51,7 +48,7 @@ class Test01GameSetup(unittest.TestCase):
 		self.assertGreaterEqual(assassin2_id, 0)
 
 		self.game.add_participant(assassin2_id, "Assassin2")
-		self.assertRaises(RuntimeError,self.game.add_participant,assassin2_id, "Assassin2")
+		self.assertRaises(UserCommunicationException,self.game.add_participant,assassin2_id, "Assassin2")
 		self.assertEqual(self.game.num_participants, 1)
 	# --------------------------------------------------------------------------
 
@@ -77,7 +74,7 @@ class Test02TargetDistribution(unittest.TestCase):
 			self.assertGreaterEqual(user_id,0)
 			self.game.add_participant(user_id, "Assassin" + str(i))
 
-		self.game.distribute_targets()
+		self.game.start_game()
 	# --------------------------------------------------------------------------
 
 	def tearDown(self):
@@ -144,7 +141,7 @@ class Test03GamePlay(unittest.TestCase):
 			self.assertGreaterEqual(user_id,0)
 			self.game.add_participant(user_id, "Assassin" + str(i))
 
-		self.game.distribute_targets()
+		self.game.start_game()
 	# --------------------------------------------------------------------------
 
 	def tearDown(self):
@@ -287,7 +284,7 @@ class Test03GamePlay(unittest.TestCase):
 		self.assertLess(attempts, max_num_attempts, "Failed to locate a living killer and a dead target")
 		self.assertTrue(killer.is_alive)
 		self.assertFalse(target.is_alive)
-		self.assertRaises(RuntimeError,self.game.register_kill,killer.handle,target.handle)
+		self.assertRaises(UserCommunicationException,self.game.register_kill,killer.handle,target.handle)
 	# --------------------------------------------------------------------------
 
 	def test05_dead_killer(self):
@@ -305,7 +302,7 @@ class Test03GamePlay(unittest.TestCase):
 		self.assertLess(attempts, max_num_attempts, "Failed to locate a living target and a dead killer")
 		self.assertFalse(killer.is_alive)
 		self.assertTrue(target.is_alive)
-		self.assertRaises(RuntimeError, self.game.register_kill, killer.handle, target.handle)
+		self.assertRaises(UserCommunicationException, self.game.register_kill, killer.handle, target.handle)
 	# --------------------------------------------------------------------------
 
 	def test06_full_game_simulation(self):
@@ -396,11 +393,9 @@ if __name__ == '__main__':
 
 	#run_specific_test(Test01GameSetup("test02_adding_duplicate_participant"))
 
-	#with redirect_stdout(StringIO()) as stdout:
-	#	unittest.main(verbosity=2)
 
-		#for i in range(0,100):
-		#	run_specific_test(Test03GamePlay("test05_full_game_simulation_chaos"))
-		#	run_specific_test(Test03GamePlay("test04_kill_already_dead"))
+	#for i in range(0,100):
+	#	run_specific_test(Test03GamePlay("test05_full_game_simulation_chaos"))
+	#	run_specific_test(Test03GamePlay("test04_kill_already_dead"))
 
 

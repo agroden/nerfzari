@@ -66,14 +66,48 @@ class NerfAssassin(Game):
 		return len(self.participants)
 	# --------------------------------------------------------------------------
 
+	@property
+	def num_living_participants(self) -> int:
+		num_alive = 0
+		for participant in self.participants[:]:
+			if participant.is_alive:
+				num_alive += 1
+		return num_alive
+	# --------------------------------------------------------------------------
+
+	@property
+	def is_game_complete(self):
+		"""
+
+		:return: True if the game has completed (has a winner); otherwise False is returned. If an error occurs a UserCommunicationException is raised.
+		"""
+		return self.num_living_participants == 1
+	# -----------------------------------------------------------------------------
+
+	def start_game(self):
+		"""
+		This function starts the game. A game can only be started once and only on or after the start_date
+		:return: void. If an error occurs (such as game has already been started) a UserCommunicationException is raised.
+		"""
+
+		if self.is_started:
+			raise UserCommunicationException("Game " + self.name + " has started.")
+
+		if self.start_date > datetime.now():
+			raise UserCommunicationException("Game " + self.name + " cannot be started before " + str(self.start_date) + ".")
+
+		self.distribute_targets()
+		self.is_started = True
+	# -----------------------------------------------------------------------------
+
 	def status(self, handle: str):
 		"""
 		:param handle: handle of the participant to print the status of (is_alive, current target, # kills... etc)
-		:return: True if status has been successfully retrieved and printed; otherwise RuntimeError is raised
+		:return: True if status has been successfully retrieved and printed; otherwise UserCommunicationException is raised
 		"""
 		participant = self.get_participant(handle)
 		if participant is None:
-			raise RuntimeError("ERROR: Assassin " + handle + " is not a participant in " + self.name)
+			raise UserCommunicationException("ERROR: Assassin " + handle + " is not a participant in " + self.name)
 		print(str(participant))
 	# --------------------------------------------------------------------------
 
@@ -84,6 +118,9 @@ class NerfAssassin(Game):
 		:return: True if the kill was successfully registered; otherwise False is returned.
 		"""
 
+		if not self.is_started:
+			raise UserCommunicationException("Cannot register a kill before the game has started.")
+
 		if assassin_handle == assassinated_handle:
 			raise UserCommunicationException("Suicide is not a valid escape path...")
 
@@ -91,10 +128,10 @@ class NerfAssassin(Game):
 		assassinated = self.get_participant(assassinated_handle)
 
 		if not assassin.is_alive:
-			raise RuntimeError("Assassin " + assassin.handle + " is not alive and thus cannot assassinate " + assassinated.handle)
+			raise UserCommunicationException("Assassin " + assassin.handle + " is not alive and thus cannot assassinate " + assassinated.handle+".")
 
 		if not assassinated.is_alive:
-			raise RuntimeError("Participant " + assassinated.handle + " is not alive and thus cannot be assassinated by " + assassin.handle)
+			raise UserCommunicationException("Participant " + assassinated.handle + " is not alive and thus cannot be assassinated by " + assassin.handle+".")
 
 		database.register_kill(assassin.user_id)
 		assassinated.is_alive = False
@@ -120,6 +157,9 @@ class NerfAssassin(Game):
 		:param handle: Unique printable name or identifier for the user during the game
 		"""
 
+		if self.is_started:
+			raise UserCommunicationException("Cannot add participants to an active game.")
+
 		participant_exists = False
 		for participant in self.participants[:]:
 			if participant.handle == handle:
@@ -127,31 +167,53 @@ class NerfAssassin(Game):
 				break
 
 		if participant_exists:
-			raise RuntimeError(handle + " is already a participant in " + self.name)
+			raise UserCommunicationException(handle + " is already a participant in " + self.name)
 
 		self.participants.append(Participant(user_id,handle))
 
 	# --------------------------------------------------------------------------
 
-	def get_participant(self, handle) -> Participant:
+	def remove_participant(self, handle: str):
+		"""
+		:param handle: Handle of the participant to remove from the game
+		:returns: void if user has been successfully removed from the game; otherwise UserCommunicationException is raised.
+		"""
+
+		participant = self.get_participant(handle)
+
+		if self.is_started:
+
+			hunter_of_participant = self.get_participant(participant.hunter_handle)
+			target_of_participant = self.get_participant(participant.target_handle)
+
+			hunter_of_participant.target_handle = participant.target_handle
+			target_of_participant.hunter_handle = hunter_of_participant.handle
+
+		self.participants.remove(participant)
+	# -------------------------------------------------------------------------
+
+	def get_participant(self, handle: str) -> Participant:
 		"""
 		:param handle: The handle of the participant to retrieve
-		:return: object of the participant matching the given handle; otherwise RunetimeError is raised
+		:return: object of the participant matching the given handle; otherwise UserCommunicationException is raised
 		"""
 
 		for participant in self.participants[:]:
 			if participant.handle == handle:
 				return participant
 
-		raise RuntimeError(handle + " is not a participant in " + self.name)
+		raise UserCommunicationException(handle + " is not a participant in " + self.name)
 	# --------------------------------------------------------------------------
 
 	def distribute_targets(self):
 		"""
-		This function should only be called once to start the game, all other target reassignments are performed on a
+		This function must only be called before start of the game, all other target reassignments are performed on a
 		per kill basis
-		:return: True if all participants were assigned a target; otherwise False is returned.
+		:return: True if all participants were assigned a target; otherwise UserCommunicationException is raised
 		"""
+		if self.is_started:
+			raise UserCommunicationException("Cannot distribute targets once the game has already started.")
+
 		import random
 
 		random.shuffle(self.participants)
