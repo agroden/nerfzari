@@ -36,6 +36,7 @@ class Game:
 	start_date: datetime
 	id: int
 	is_started: bool
+	is_completed: bool
 
 	def __init__(self,game_type: GameType):
 		self.type = game_type
@@ -43,6 +44,7 @@ class Game:
 		self.start_date = 0
 		self.is_started = False
 		self.id = 0
+		self.is_completed = False
 	# -------------------------------------------------------------------------
 
 	def __str__(self):
@@ -121,6 +123,15 @@ def is_game_complete(game_id: int) -> bool:
 	"""
 	game = database.get_game(game_id)
 	return game.is_game_complete
+# -----------------------------------------------------------------------------
+
+def complete_game(game_id: int):
+
+	game = database.get_game(game_id)
+
+	if game.is_game_complete and not game.is_completed:
+		game.is_completed = True
+		database.complete_game(game)
 # -----------------------------------------------------------------------------
 
 def leaderboard():

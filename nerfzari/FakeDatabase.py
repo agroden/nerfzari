@@ -29,6 +29,11 @@ def update_game(object: 'Game') -> bool:
 	"""
 	games[object.id] = object;
 
+def complete_game(object: 'Game') -> bool:
+
+	update_game(object)
+	# Loop through each participant and update kills/deaths.
+
 def add_user(object: 'User') -> int:
 	"""
 	:param object: User object representing the new user
