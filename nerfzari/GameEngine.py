@@ -91,7 +91,7 @@ def new_game(game_type: GameType, name: str, start_date: datetime) -> Game:
 		raise UserCommunicationException("ERROR: Unknown GameType " + str(game_type))
 
 
-	game.id = database.add_game(game)  # TODO: This needs to be replaced with a real database call
+	database.add_game(game)  # TODO: This needs to be replaced with a real database call
 
 	return game
 # -------------------------------------------------------------------------
