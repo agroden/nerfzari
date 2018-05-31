@@ -1,6 +1,6 @@
 from datetime import datetime
 from enum import Enum
-import FakeDatabase as database
+from DatabaseInterface import DatabaseInterface
 from User import User
 
 ####################################
@@ -59,6 +59,8 @@ class Game:
 ###################
 ### Game Engine ###
 ###################
+
+database = DatabaseInterface()
 
 def new_user(first_name: str, last_name: str):
 	"""

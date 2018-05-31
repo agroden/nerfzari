@@ -2,7 +2,9 @@ from datetime import datetime
 from typing import List
 from GameEngine import Game,GameType
 from GameEngine import UserCommunicationException
-import FakeDatabase as database
+from DatabaseInterface import DatabaseInterface
+
+database = DatabaseInterface()
 
 
 ###################
