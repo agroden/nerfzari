@@ -18,6 +18,7 @@ class Test01GameSetup(unittest.TestCase):
 		self.game = NerfAssassin("Test Game", datetime.now() + timedelta(days=21))
 		self.assertIsNotNone(self.game)
 		database.start_unittest_mode()
+		database.add_game(self.game)
 	# --------------------------------------------------------------------------
 
 	def tearDown(self):
@@ -104,6 +105,7 @@ class Test02TargetDistribution(unittest.TestCase):
 
 		self.game = NerfAssassin("Test Game", datetime.now())
 		self.assertIsNotNone(self.game)
+		database.add_game(self.game)
 
 		for i in range(random.randint(self.MIN_NUM_PARTICIPANTS,self.MAX_NUM_PARTICIPANTS)):
 			user_id = GameEngine.new_user("Ass", "Assin" + str(i))
@@ -175,6 +177,7 @@ class Test03GamePlay(unittest.TestCase):
 
 		self.game = NerfAssassin("Test Game", datetime.now())
 		self.assertIsNotNone(self.game)
+		database.add_game(self.game)
 
 		for i in range(random.randint(self.MIN_NUM_PARTICIPANTS,self.MAX_NUM_PARTICIPANTS)):
 			user_id = GameEngine.new_user("Ass", "Assin" + str(i))
@@ -207,18 +210,6 @@ class Test03GamePlay(unittest.TestCase):
 
 	# --------------------------------------------------------------------------
 
-	def get_num_kills(self,user_id) -> int:
-		user = database.get_user(user_id)
-		self.assertIsNotNone(user)
-		return user.kills
-	# --------------------------------------------------------------------------
-
-	def get_num_deaths(self,user_id) -> int:
-		user = database.get_user(user_id)
-		self.assertIsNotNone(user)
-		return user.deaths
-	# --------------------------------------------------------------------------
-
 	def test01_target_kill(self):
 
 		participant = random.choice(self.game.participants)
@@ -226,15 +217,13 @@ class Test03GamePlay(unittest.TestCase):
 		target = self.game.get_participant(participant.target_handle)
 		self.assertIsNotNone(target)
 
-		prev_num_kills = self.get_num_kills(participant.user_id)
+		prev_num_kills = participant.kills
 		prev_targets_target = target.target_handle
-		prev_num_deaths = self.get_num_deaths(target.user_id)
 
 		self.game.register_kill(participant.handle, target.handle)
 		self.assertFalse(target.is_alive)
 		self.assertEqual(target.assassinator, participant.handle)
-		self.assertEqual(self.get_num_deaths(target.user_id),prev_num_deaths+1)
-		self.assertEqual(self.get_num_kills(participant.user_id),prev_num_kills+1)
+		self.assertEqual(participant.kills,prev_num_kills+1)
 
 		# Ensure participant's target was changed to the target of the killed
 		self.assertEqual(participant.target_handle, prev_targets_target)
@@ -252,15 +241,13 @@ class Test03GamePlay(unittest.TestCase):
 		hunter = self.game.get_participant(participant.hunter_handle)
 		self.assertIsNotNone(hunter)
 
-		prev_num_kills = self.get_num_kills(participant.user_id)
+		prev_num_kills = participant.kills
 		prev_target = participant.target_handle
-		prev_num_deaths = self.get_num_deaths(hunter.user_id)
 
 		self.game.register_kill(participant.handle, participant.hunter_handle)
 		self.assertFalse(hunter.is_alive)
 		self.assertEqual(hunter.assassinator, participant.handle)
-		self.assertEqual(self.get_num_deaths(hunter.user_id), prev_num_deaths + 1)
-		self.assertEqual(self.get_num_kills(participant.user_id), prev_num_kills + 1)
+		self.assertEqual(participant.kills, prev_num_kills + 1)
 		self.assertEqual(participant.target_handle, prev_target) # Ensure target of participant didn't change
 
 		#Ensure hunter's hunter is assigned to the killer
@@ -287,15 +274,13 @@ class Test03GamePlay(unittest.TestCase):
 				break
 		self.assertLess(attempts,max_num_attempts,"Failed to locate two unrelated targets")
 
-		prev_num_kills = self.get_num_kills(killer.user_id)
+		prev_num_kills = killer.kills
 		prev_target = killer.target_handle
-		prev_num_deaths = self.get_num_deaths(killed.user_id)
 
 		self.game.register_kill(killer.handle,killed.handle)
 		self.assertFalse(killed.is_alive)
 		self.assertEqual(killed.assassinator, killer.handle)
-		self.assertEqual(self.get_num_deaths(killed.user_id), prev_num_deaths + 1)
-		self.assertEqual(self.get_num_kills(killer.user_id), prev_num_kills + 1)
+		self.assertEqual(killer.kills, prev_num_kills + 1)
 		self.assertEqual(killer.target_handle, prev_target) # Ensure target of killer didn't change
 
 		#Ensure killed assassin's hunter is assigned to the killer

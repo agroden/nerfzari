@@ -36,6 +36,7 @@ class Game:
 	start_date: datetime
 	id: int
 	is_started: bool
+	is_completed: bool
 
 	def __init__(self,game_type: GameType):
 		self.type = game_type
@@ -43,6 +44,7 @@ class Game:
 		self.start_date = 0
 		self.is_started = False
 		self.id = 0
+		self.is_completed = False
 	# -------------------------------------------------------------------------
 
 	def __str__(self):
@@ -93,7 +95,7 @@ def new_game(game_type: GameType, name: str, start_date: datetime) -> Game:
 		raise UserCommunicationException("ERROR: Unknown GameType " + str(game_type))
 
 
-	game.id = database.add_game(game)  # TODO: This needs to be replaced with a real database call
+	database.add_game(game)  # TODO: This needs to be replaced with a real database call
 
 	return game
 # -------------------------------------------------------------------------
@@ -123,6 +125,15 @@ def is_game_complete(game_id: int) -> bool:
 	"""
 	game = database.get_game(game_id)
 	return game.is_game_complete
+# -----------------------------------------------------------------------------
+
+def complete_game(game_id: int):
+
+	game = database.get_game(game_id)
+
+	if game.is_game_complete and not game.is_completed:
+		game.is_completed = True
+		database.complete_game(game)
 # -----------------------------------------------------------------------------
 
 def leaderboard():

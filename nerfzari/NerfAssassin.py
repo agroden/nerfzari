@@ -14,6 +14,7 @@ database = DatabaseInterface()
 class Participant:
 	user_id: int
 	handle: str
+	kills: int
 	target_handle: str
 	hunter_handle: str
 	is_alive: bool
@@ -26,6 +27,7 @@ class Participant:
 		self.hunter_handle = ""
 		self.is_alive = True
 		self.assassinator = ""
+		self.kills = 0
 
 	def __str__(self):
 		string = str(self.user_id)
@@ -100,6 +102,7 @@ class NerfAssassin(Game):
 
 		self.distribute_targets()
 		self.is_started = True
+		database.update_game(self)
 	# -----------------------------------------------------------------------------
 
 	def status(self, handle: str):
@@ -135,9 +138,8 @@ class NerfAssassin(Game):
 		if not assassinated.is_alive:
 			raise UserCommunicationException("Participant " + assassinated.handle + " is not alive and thus cannot be assassinated by " + assassin.handle+".")
 
-		database.register_kill(assassin.user_id)
+		assassin.kills += 1
 		assassinated.is_alive = False
-		database.register_death(assassinated.user_id)
 		assassinated.assassinator = assassin_handle
 
 		if assassin.handle != assassinated.hunter_handle:
@@ -151,6 +153,8 @@ class NerfAssassin(Game):
 			new_target = self.get_participant(assassinated.target_handle)
 			assassin.target_handle = new_target.handle
 			new_target.hunter_handle = assassin.handle
+
+		database.update_game(self)
 	# --------------------------------------------------------------------------
 
 	def add_participant(self, user_id: int, handle: str):
@@ -172,7 +176,7 @@ class NerfAssassin(Game):
 			raise UserCommunicationException(handle + " is already a participant in " + self.name)
 
 		self.participants.append(Participant(user_id,handle))
-
+		database.update_game(self)
 	# --------------------------------------------------------------------------
 
 	def remove_participant(self, handle: str):
@@ -191,6 +195,7 @@ class NerfAssassin(Game):
 				target_of_participant.hunter_handle = hunter_of_participant.handle
 
 		self.participants.remove(participant)
+		database.update_game(self)
 	# -------------------------------------------------------------------------
 
 	def get_participant(self, handle: str) -> Participant:
