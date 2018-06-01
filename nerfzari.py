@@ -5,6 +5,8 @@ import socket
 import logging
 import sys
 import paramiko
+import tableprint
+import io
 from nerfzari import ConfigStore, Authenticator, SSHServer, SSHCmd
 
 
@@ -71,6 +73,16 @@ class NerfzariCmd(SSHCmd):
 	def do_input(self, args):
 		recv = self.terminput('input>', False)
 		self.poutput('You entered: {}'.format(recv))
+
+	def do_box(self, args):
+		#for x in [0x6a, 0x6b, 0x6c, 0x6d, 0x6e, 0x71, 0x74, 0x75, 0x76, 0x77, 0x78]:
+		#	self.poutput('0x{0:x} {0:c} \x1b(0{0:c}\x1b(B'.format(x))
+		strio = io.StringIO()
+		tableprint.table([[1,2,3],[4,5,6],[7,8,9]], ['A', 'B', 'C'], out=strio)
+		rows = strio.getvalue().split('\n')
+		for row in rows:
+			if len(row) > 0:
+				self.poutput(row)
 
 	def do_exit(self, args):
 		"""exit the terminal"""
