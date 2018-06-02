@@ -11,6 +11,7 @@ import socket
 import threading
 import nerfzari
 
+import pyte
 
 logging.basicConfig(filename='nerfzari.log', level=logging.DEBUG)
 log = logging.getLogger(__name__)
@@ -167,9 +168,51 @@ class SSHInterface(paramiko.ServerInterface):
 		return True
 
 	def check_channel_pty_request(self, channel, term, width, height, pxwidth, pxheight, modes):
+		#channel.get_pty(term, width, height, pxwidth, pxheight)
+		return True
+
+	def check_channel_window_change_request(self, channel, width, height, pxwidth, pxheight):
+		#channel.resize_pty(width, height, pxwidth, pxheight)
 		return True
 
 
+
+'''
+class CmdStream(pyte.Stream):
+	def __init__(self, cmd, screen=None, strict=True):
+		super().__init__(screen, strict)
+		self._cmd = cmd
+
+	def feed(self, data):
+		pass
+
+class PyteChannel(paramiko.Channel):
+	def __init__(self, chanid):
+		super().__init__(chanid)
+		self._screen = None
+		self._stream = None
+
+	def get_pty(self, term, width, height, pxwidth, pxheight):
+		if self._screen is None:
+			self._screen = pyte.Screen(width, height)
+			self._stream = pyte.ByteStream(self._screen)
+
+	def resize_pty(self, width, height, pxwidth, pxheight):
+		if self._screen is not None:
+			self._screen.resize(height, width)
+
+	def recv(self, nbytes):
+		data = super().recv(nbytes)
+		if self._stream is not None:
+			self._stream.feed(data)
+		self.send(data)
+		return data
+
+	def send(self, s):
+		sent = super().send(s)
+
+		return sent
+'''
 class SSHCmd(cmd.Cmd):
 	"""The command handler of Nerfzari."""
 	use_rawinput = False # never use raw input
