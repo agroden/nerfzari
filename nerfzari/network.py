@@ -121,7 +121,8 @@ class SSHServer(object):
 						proc.daemon = True
 						proc.start()
 		finally:
-			for proc in multiprocessing.active_children():
+			# Note: pylint has a false positive here claiming active_children is not callable
+			for proc in multiprocessing.active_children(): # pylint: disable=E1102
 				proc.terminate()
 				proc.join()
 			self._ssock.close()
