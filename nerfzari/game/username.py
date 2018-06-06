@@ -6,9 +6,10 @@ http://wordrequest.com
 """
 
 import random
+from os.path import abspath, join, dirname
 
-ADJECTIVE_FILE = 'adjective.txt'
-NOUN_FILE = 'noun.txt'
+ADJECTIVE_FILE = abspath(join(dirname(__file__), 'adjective.txt'))
+NOUN_FILE = abspath(join(dirname(__file__), 'noun.txt'))
 
 def generate_username(adj_len=None, noun_len=None):
 	def choose(path, maxlen=None):
@@ -27,7 +28,7 @@ def generate_username(adj_len=None, noun_len=None):
 	adjective = choose(ADJECTIVE_FILE, adj_len)
 	noun = choose(NOUN_FILE, noun_len)
 	return '{}{}'.format(adjective, noun.title())
-
+'''
 import time
 try:
 	while True:
@@ -35,3 +36,4 @@ try:
 		time.sleep(0.5)
 except KeyboardInterrupt:
 	pass
+'''
