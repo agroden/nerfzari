@@ -11,7 +11,6 @@ import socket
 import threading
 import nerfzari
 
-import pyte
 
 logging.basicConfig(filename='nerfzari.log', level=logging.DEBUG)
 log = logging.getLogger(__name__)
@@ -73,38 +72,45 @@ class SSHServer(object):
 
 	@staticmethod
 	def _ssh_process(addr, conn, key_path, cmd_cls, auth_cls):
+		chan = None
+		tport = None
 		def cleanup():
-			tport.close()
-			conn.close()
-		key = paramiko.RSAKey(filename=key_path)
-		tport = paramiko.Transport(conn)
-		tport.set_gss_host(socket.getfqdn(''))
-		tport.add_server_key(key)
-		if issubclass(auth_cls, nerfzari.Configurable):
-			auth = auth_cls.from_cfg()
-		else:
-			auth = auth_cls()
-		iface = SSHInterface(auth)
+			if chan is not None:
+				chan.close()
+			if tport is not None:
+				tport.close()
+			if conn is not None:
+				conn.close()
 		try:
-			tport.start_server(server=iface)
-		except paramiko.SSHException:
-			log.warning('SSH negotiation failed for {}:{}'.format(addr[0], addr[1]))
+			key = paramiko.RSAKey(filename=key_path)
+			tport = paramiko.Transport(conn)
+			tport.set_gss_host(socket.getfqdn(''))
+			tport.add_server_key(key)
+			if issubclass(auth_cls, nerfzari.Configurable):
+				auth = auth_cls.from_cfg()
+			else:
+				auth = auth_cls()
+			iface = SSHInterface(auth)
+			try:
+				tport.start_server(server=iface)
+			except paramiko.SSHException:
+				log.warning('SSH negotiation failed for {}:{}'.format(addr[0], addr[1]))
+				cleanup()
+				return
+			chan = tport.accept(20)
+			if chan is None:
+				log.warning('Client at {}:{} did not open channel'.format(addr[0], addr[1]))
+				cleanup()
+				return
+			iface.event.wait(10)
+			if not iface.event.is_set():
+				log.warning('Client at {}:{} did not ask for shell'.format(addr[0], addr[1]))
+				cleanup()
+				return
+			term = cmd_cls(chan, iface.username)
+			term.cmdloop()
+		finally:
 			cleanup()
-			return
-		chan = tport.accept(20)
-		if chan is None:
-			log.warning('Client at {}:{} did not open channel'.format(addr[0], addr[1]))
-			cleanup()
-			return
-		iface.event.wait(10)
-		if not iface.event.is_set():
-			log.warning('Client at {}:{} did not ask for shell'.format(addr[0], addr[1]))
-			cleanup()
-			return
-		term = cmd_cls(chan)
-		term.cmdloop('nerfing is true; everything is permitted')
-		chan.close()
-		cleanup()
 
 	def serve_forever(self, poll_interval=0.5):
 		self._ssock.listen(5)
@@ -146,6 +152,11 @@ class SSHInterface(paramiko.ServerInterface):
 	def __init__(self, authenticator=AcceptAll()):
 		self.event = threading.Event()
 		self._auth = authenticator
+		self._username = None
+
+	@property
+	def username(self):
+		return self._username
 
 	def check_channel_request(self, kind, chanid):
 		"""
@@ -160,6 +171,7 @@ class SSHInterface(paramiko.ServerInterface):
 		The Nerfzari server only accepts password authentication.
 		"""
 		if self._auth.authenticate(username, password):
+			self._username = username
 			return paramiko.AUTH_SUCCESSFUL
 		return paramiko.AUTH_FAILED
 
@@ -218,9 +230,10 @@ class SSHCmd(cmd.Cmd):
 	use_rawinput = False # never use raw input
 	hidden_cmds = ['do_EOF',]
 	max_history = 1024
-	def __init__(self, chan):
+	def __init__(self, chan, username, completekey='tab'):
 		super().__init__()
 		self._chan = chan
+		self._username = username
 		self._cmd_history = []
 
 	def poutput(self, msg, end='\r\n'):
@@ -376,6 +389,7 @@ class SSHCmd(cmd.Cmd):
 
 	def cmdloop(self, intro=None):
 		""""""
+		self.preloop()
 		if intro is not None:
 			self.intro = intro
 		if self.intro:
