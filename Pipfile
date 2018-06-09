@@ -9,7 +9,6 @@ paramiko = "*"
 PyYAML = "*"
 jsonschema = "*"
 records = "*"
-pyte = "*"
 tableprint = "*"
 peewee = "*"
 
