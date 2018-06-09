@@ -12,6 +12,7 @@ import inspect
 import time
 import random
 import peewee
+import username
 from datetime import datetime
 from nerfzari import ConfigStore, Authenticator, SSHServer, SSHCmd, Game, User
 
@@ -68,7 +69,6 @@ def random_quote():
 
 class NerfzariCmd(SSHCmd):
 	# actions:
-	# unregister from game (before game start)
 	# personal status (games, IDs, overall K/D ratio, ranking)
 	# game status - game ID or current (who has been killed, K/D ratio)
 	# leaderboard
@@ -96,12 +96,7 @@ class NerfzariCmd(SSHCmd):
 			self.poutput('error: user not found - please enter your information to access the server')
 			name = self.terminput('full name>', False)
 			email = self.terminput('email>', False)
-			self._user = User.create(
-				user_name = self._username,
-				real_name = name,
-				email = email
-			)
-			self._user.save()
+			self._user = User.new_user(self._username, name, email)
 			self.poutput('user registration complete; welcome to game, {}'.format(name))
 		# get a random quote
 		self.poutput(random_quote())
@@ -115,21 +110,19 @@ class NerfzariCmd(SSHCmd):
 				self.poutput('next scheduled game is {} on {}'.format(next_game.name, next_game.start_date))
 
 	def new_game(self):
+		def type_completer(text):
+
 		gtype = self.terminput('game type>', False)
-		nickname = self.terminput('game name>', False)
+		name = self.terminput('game name>', False)
 		date_str = self.terminput('start date (month/day/year)>', False)
 		month, day, year = date_str.split('/')
 		date = datetime(int(year), int(month), int(day), 12, 0, 0, 0)
-		# create game
-		Game.create(
-			state_date = date,
-			game_type = gtype,
-			name = nickname,
-			creator = self._user.primary_key
-		).save()
+		try:
+			Game.new_game(date, gtype, name, self._user)
+		except peewee.IntegrityError:
+			self.poutput('a game with that name or date already exists.')
 
 	def list_game(self):
-		# TODO: show games joined
 		games = Game.list_games()
 		self.draw_gamelist(games)
 
@@ -139,25 +132,62 @@ class NerfzariCmd(SSHCmd):
 		if len(games) > 0:
 			self.draw_gamelist(games)
 			name = self.terminput('game name>', False)
-			confirm = self.terminput('are you sure>', False)
+			game = Game.get(name=name, creator=self._user)
+			if game.start_date < datetime.now:
+				self.poutput('cannot delete games that are in progress')
+				return
+			players = [x for x in game.players]
+			if len(players) > 0:
+				self.poutput('players have joined this game, please confirm you wish to delete this game')
+				confirm = self.terminput('confirm>', False)
+			else:
+				confirm = 'yes'
 			if confirm.lower() in ['y', 'yes']:
-				Game.delete_game(name, self._user)
+				game.safe_delete()
 		else:
 			self.poutput('you may only delete games you have created')
 
 	def join_game(self):
-		# TODO: don't allow join if already joined
-		# TODO: only allow joining of upcoming games (start date == now)
 		self.draw_gamelist(Game.list_games())
 		name = self.terminput('game name>', False)
-		Game.join_game(self._user, Game.get(name=name))
+		if not self._user.has_joined(name):
+			game = Game.get(name=name)
+			if game.start_date < datetime.now:
+				self.poutput('cannot join a game currently in session')
+		player = game.join(self._user)
+		self.poutput('your game tag is {}'.format(player.tag))
+		self.poutput('your game tag represents you - remember it')
+		self.poutput('when you are eliminated, you give your tag to the player that eliminated you')
+		self.poutput('if a player discovers your tag, they can use it to eliminate you, so keep it secret!')
 
 	def leave_game(self):
+		# TODO: only allow leave if game hasn't started yet
 		self.draw_gamelist(Game.list_games())
 		name = self.terminput('game name>', False)
-		Game.leave_game(self._user, Game.get(name=name))
+		game = Game.get(name=name)
+		if not game.started():
+			Game.leave_game(self._user, Game.get(name=name))
+		else:
+			self.poutput('cannot leave a game that has started')
 
-	_game_subcommands = ['new', 'list', 'delete', 'join', 'joined', 'leave']
+	def show_tag(self):
+		game = Game.next_game()
+		if game:
+			self.poutput('your current tag is: {}'.format(game.tag(self._user)))
+
+	def reset_tag(self):
+		self.show_tag()
+		game = Game.next_game()
+		new_tag = game.tag
+		resp = self.terminput('keep?>')
+		while resp.lower() not in ['y', 'yes']:
+			new_tag = username.generate_username(8, 8)
+			self.poutput('new tag: {}'.format(new_tag))
+			resp = self.terminput('keep?>')
+		game.tag = new_tag
+		game.save()
+
+	_game_subcommands = ['new', 'list', 'delete', 'join', 'joined', 'leave', 'tag', 'reset_tag']
 	def do_game(self, line):
 		"""
 		interact with games. Has the following sub commands:
@@ -166,6 +196,7 @@ class NerfzariCmd(SSHCmd):
 		list - list upcoming games
 		join - join a game
 		leave - leave a game
+		tag - show your current / next tag
 		"""
 		if line == '':
 			line = 'list'
@@ -184,12 +215,12 @@ class NerfzariCmd(SSHCmd):
 
 	def do_target(self, line):
 		"""show your current target"""
-		# TODO: only show target if there is a current game
+		game = next_game(self, line)
 		pass
 
-	def do_tag(self, line):
-		"""Show your current tag"""
-		# TODO: show current or next tag
+	def do_eliminate(self, line):
+		"""Eliminate a target"""
+		# TODO: process line for game tag
 		pass
 
 	def do_stats(self, line):
@@ -202,9 +233,9 @@ class NerfzariCmd(SSHCmd):
 
 	def draw_gamelist(self, games):
 		if len(games) > 0:
-			joined = [x for x in User.games_joined(self._user)]
+			joined = [x for x in self._user.games_joined()]
 			print('joined: {}'.format(joined))
-			header = ['start date', 'name', 'game type', 'creator', 'joined']
+			header = ['start date', 'name', 'game type', 'creator', 'joined', 'winner']
 			data = []
 			for game in games:
 				data.append((
@@ -212,7 +243,8 @@ class NerfzariCmd(SSHCmd):
 					game.name,
 					game.game_type,
 					game.creator.user_name,
-					'joined' if game.primary_key in joined else ''
+					'joined' if game.primary_key in joined else '',
+					game.winner
 				))
 			self.draw_table(header, data)
 
@@ -224,47 +256,9 @@ class NerfzariCmd(SSHCmd):
 			if len(row) > 0:
 				self.poutput(row)
 
-	'''
-	def do_hello(self, args):
-		"""say hello"""
-		out = 'world'
-		if args:
-			out = args
-		self.poutput('Hello {}'.format(out))
-
-	greetings = ['Alice', 'Adam', 'Bob', 'Barbara']
-	def complete_hello(self, text, line, begidx, endidx):
-		if not text:
-			ret = self.greetings[:]
-		else:
-			ret = [x for x in self.greetings if x.startswith(text)]
-		return ret
-	
-	def do_input(self, args):
-		recv = self.terminput('input>', False)
-		self.poutput('You entered: {}'.format(recv))
-
-	def do_box(self, args):
-		#for x in [0x6a, 0x6b, 0x6c, 0x6d, 0x6e, 0x71, 0x74, 0x75, 0x76, 0x77, 0x78]:
-		#	self.poutput('0x{0:x} {0:c} \x1b(0{0:c}\x1b(B'.format(x))
-		strio = io.StringIO()
-		tableprint.table([[1,2,3],[4,5,6],[7,8,9]], ['A', 'B', 'C'], out=strio)
-		rows = strio.getvalue().split('\n')
-		for row in rows:
-			if len(row) > 0:
-				self.poutput(row)
-
-	def do_exit(self, args):
-		"""exit the terminal"""
-		self.poutput('exiting...')
-		return True
-		
-	def postloop(self):
-		self.poutput('goodbye')
-	'''
-
 
 if __name__ == '__main__':
+	# TODO: make the game management thread
 	ConfigStore.load_all()
 	cfg = ConfigStore.get(NERFZARI_CFG_PATH)
 	addr = ('', cfg['listen_port'])
@@ -275,53 +269,3 @@ if __name__ == '__main__':
 			server.serve_forever()
 	except KeyboardInterrupt:
 		server.shutdown()
-
-	'''
-	# TODO: make this safer for a daemon
-	try:
-		sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-		sock.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
-		sock.bind(('', cfg['listen_port']))
-	except socket.error as err:
-		log.error('Bind failed: {}'.format(str(err)))
-		sys.exit(1)
-	print('0')
-
-	try:
-		sock.listen()
-		conn, addr = sock.accept()
-	except socket.error as err:
-		log.error('Listen / accpet failed: {}'.format(str(err)))
-		sys.exit(1)
-	print('1')
-
-	try:
-		trans = paramiko.Transport(conn)
-		trans.set_gss_host(socket.getfqdn(''))
-		trans.add_server_key(host_key)
-		auth = Authenticator.make(cfg['auth_cls'])
-		server = SSHServer(auth)
-		try:
-			trans.start_server(server=server)
-			print('server started')
-		except paramiko.SSHException:
-			log.error('SSH negotiation failed')
-			sys.exit(1)
-		chan = trans.accept(20)
-		if chan is None:
-			log.error('No channel')
-			sys.exit(1)
-		server.event.wait(10)
-		if not server.event.is_set():
-			log.error('Client did not ask for shell')
-			sys.exit(1)
-		print('2')
-		term = NerfzariCmd(chan)
-		term.cmdloop('nerfing is true; everything is permitted')
-
-	except Exception as ex:
-		log.error('Unexpected exception occurred: {}'.format(str(ex)))
-		sys.exit(1)
-	finally:
-		trans.close()
-'''
