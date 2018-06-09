@@ -99,7 +99,7 @@ class NerfzariCmd(SSHCmd):
 			self._user = User.new_user(self._username, name, email)
 			self.poutput('user registration complete; welcome to game, {}'.format(name))
 		# get a random quote
-		self.poutput(random_quote())
+		#self.poutput(random_quote())
 		# display game info
 		curr_games = Game.active_games()
 		if len(curr_games) > 1:
@@ -110,8 +110,9 @@ class NerfzariCmd(SSHCmd):
 				self.poutput('next scheduled game is {} on {}'.format(next_game.name, next_game.start_date))
 
 	def new_game(self):
+		# TODO: finish type completer from discovered game types
 		def type_completer(text):
-
+			pass
 		gtype = self.terminput('game type>', False)
 		name = self.terminput('game name>', False)
 		date_str = self.terminput('start date (month/day/year)>', False)
