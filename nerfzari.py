@@ -12,9 +12,8 @@ import inspect
 import time
 import random
 import peewee
-import username
 from datetime import datetime
-from nerfzari import ConfigStore, Authenticator, SSHServer, SSHCmd, Game, User
+from nerfzari import ConfigStore, Authenticator, SSHServer, SSHCmd, Game, User, username
 
 
 logging.basicConfig(filename='nerfzari.log', level=logging.DEBUG)
@@ -216,7 +215,7 @@ class NerfzariCmd(SSHCmd):
 
 	def do_target(self, line):
 		"""show your current target"""
-		game = next_game(self, line)
+		game = Game.next_game(self, line)
 		pass
 
 	def do_eliminate(self, line):
@@ -256,7 +255,6 @@ class NerfzariCmd(SSHCmd):
 		for row in rows:
 			if len(row) > 0:
 				self.poutput(row)
-
 
 if __name__ == '__main__':
 	# TODO: make the game management thread
