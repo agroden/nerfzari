@@ -10,6 +10,7 @@ import selectors
 import socket
 import threading
 import nerfzari
+import re
 
 
 logging.basicConfig(filename='nerfzari.log', level=logging.DEBUG)
@@ -398,7 +399,10 @@ class SSHCmd(cmd.Cmd):
 				try:
 					doc=getattr(self, 'do_' + arg).__doc__
 					if doc:
-						self.poutput('{}'.format(str(doc)))
+						dlist = [x for x in doc.split('\n') if x != '']
+						lw = len(dlist[0]) - len(re.sub(r'^\s*', '', dlist[0]))
+						for line in dlist:
+							self.poutput('{}'.format(str(line[lw:])))
 						return
 				except AttributeError:
 					pass
